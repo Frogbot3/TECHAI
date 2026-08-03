@@ -219,8 +219,8 @@ export default function HomePage() {
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
-        onLoginSuccess={(name, phone, email) => {
-          store.loginUser(name, phone, email);
+        onLoginSuccess={(user) => {
+          store.setAuthenticatedUser(user);
           setIsCheckoutOpen(true);
         }}
       />

@@ -60,11 +60,7 @@ export async function POST(req: Request) {
       );
     }
 
-    
-
-// ...
-
-  const formattedItems = normalizedItems.map((item: CartItem) => ({
+    const formattedItems = normalizedItems.map((item: CartItem) => ({
       productId: item.product.id,
       title: item.product.title,
       brand: item.product.brand,
