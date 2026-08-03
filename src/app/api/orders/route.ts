@@ -5,6 +5,7 @@ import { normalizeCartItem, toClientOrder } from "@/lib/serializers";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import User from "@/models/User";
+import { CartItem } from "@/lib/types";
 
 const createOrderId = () => `TECHAI-ORD-${Math.floor(100000 + Math.random() * 900000)}`;
 const createTrackingNumber = () => `TA-${Math.floor(10000000 + Math.random() * 90000000)}`;
@@ -59,7 +60,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const formattedItems = normalizedItems.map((item) => ({
+    
+
+// ...
+
+  const formattedItems = normalizedItems.map((item: CartItem) => ({
       productId: item.product.id,
       title: item.product.title,
       brand: item.product.brand,
