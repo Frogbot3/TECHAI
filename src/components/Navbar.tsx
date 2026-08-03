@@ -1,24 +1,23 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { CATEGORIES } from "@/lib/data";
 import TechAiLogo from "./TechAiLogo";
 import {
-  Search,
-  ShoppingBag,
-  User,
-  PackageCheck,
-  ShieldAlert,
-  Sparkles,
+  ChevronDown,
   Heart,
-  Menu,
-  X,
   LogOut,
-  SlidersHorizontal,
-  ChevronDown
+  MapPin,
+  Menu,
+  PackageCheck,
+  Search,
+  ShieldCheck,
+  ShoppingCart,
+  User,
+  X,
 } from "lucide-react";
-import { CATEGORIES } from "@/lib/data";
 
 interface NavbarProps {
   cartCount: number;
@@ -45,121 +44,101 @@ export default function Navbar({
   onOpenCart,
   onOpenAuth,
   onOpenTracking,
-  onLogout
+  onLogout,
 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdown, setUserDropdown] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 shadow-sm transition-all">
-      <div className="bg-slate-900 text-white text-xs py-1.5 px-4 text-center flex items-center justify-between font-medium">
-        <div className="hidden sm:flex items-center space-x-2 text-slate-300">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-          <span>TECH AI Flagship Launch: Get extra 10% off with coupon <strong>TECHAI10</strong></span>
-        </div>
-        <div className="flex items-center space-x-4 mx-auto sm:mx-0">
-          <button
-            onClick={onOpenTracking}
-            className="flex items-center space-x-1 hover:text-cyan-400 transition-colors"
-          >
-            <PackageCheck className="w-3.5 h-3.5" />
-            <span>Track Order</span>
+    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
+      <div className="bg-slate-900 text-slate-100 text-[11px] sm:text-xs">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between gap-3">
+          <button className="hidden sm:flex items-center gap-1 text-slate-300 hover:text-white">
+            <MapPin className="w-3.5 h-3.5" />
+            <span>Delivering across India</span>
           </button>
-          <span className="text-slate-700">|</span>
-          <Link
-            href="/admin/login"
-            className="flex items-center space-x-1 hover:text-amber-400 transition-colors text-slate-300"
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Admin Portal</span>
-          </Link>
+          <div className="flex items-center justify-center sm:justify-end gap-4 w-full sm:w-auto">
+            <button onClick={onOpenTracking} className="flex items-center gap-1 hover:text-white text-slate-300">
+              <PackageCheck className="w-3.5 h-3.5" />
+              <span>Track Order</span>
+            </button>
+            <Link href="/admin/login" className="flex items-center gap-1 hover:text-white text-slate-300">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Admin</span>
+            </Link>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
-        <Link href="/" className="flex-shrink-0 group">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
+        <Link href="/" className="shrink-0" aria-label="TECH AI home">
           <TechAiLogo size="md" />
         </Link>
 
-        <div className="hidden md:flex flex-1 max-w-2xl items-center relative">
-          <div className="relative w-full flex items-center">
-            <Search className="absolute left-3.5 w-4 h-4 text-slate-400" />
+        <div className="hidden md:flex flex-1 max-w-3xl">
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search AI gadgets, football cleats, watches, stress toys..."
+              placeholder="Search mobiles, appliances, fashion, groceries..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-24 py-2 bg-slate-50 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white transition-all text-slate-800"
+              className="w-full h-10 pl-10 pr-24 text-sm bg-white border border-slate-300 rounded-md text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
             />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-20 text-xs text-slate-400 hover:text-slate-600"
-              >
-                Clear
-              </button>
-            )}
-            <div className="absolute right-1 text-xs font-semibold text-white bg-slate-900 px-3 py-1.5 rounded-full flex items-center space-x-1 pointer-events-none">
-              <span>Search</span>
-            </div>
+            <button
+              type="button"
+              className="absolute right-0 top-0 h-10 px-5 bg-amber-400 hover:bg-amber-500 text-slate-950 rounded-r-md text-sm font-bold"
+            >
+              Search
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 sm:space-x-4">
-          <button
-            onClick={onOpenTracking}
-            className="p-2 text-slate-600 hover:text-slate-900 sm:hidden rounded-full hover:bg-slate-100"
-            title="Track Order"
-          >
-            <PackageCheck className="w-5 h-5" />
-          </button>
-
+        <div className="ml-auto flex items-center gap-1 sm:gap-2">
           <div className="relative">
             {user ? (
               <button
-                onClick={() => setUserDropdown(!userDropdown)}
-                className="flex items-center space-x-2 p-1.5 rounded-full hover:bg-slate-100 transition-colors border border-slate-200"
+                onClick={() => setUserDropdown((value) => !value)}
+                className="h-10 px-2 sm:px-3 rounded-md hover:bg-slate-100 flex items-center gap-2 text-sm text-slate-800"
               >
                 <img
-                  src={user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`}
+                  src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name)}`}
                   alt={user.name}
-                  className="w-7 h-7 rounded-full bg-cyan-100"
+                  className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200"
                 />
-                <span className="hidden sm:inline text-xs font-semibold text-slate-800 max-w-[100px] truncate">
-                  {user.name}
-                </span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-500 hidden sm:inline" />
+                <span className="hidden sm:block max-w-[120px] truncate font-semibold">{user.name}</span>
+                <ChevronDown className="hidden sm:block w-4 h-4 text-slate-500" />
               </button>
             ) : (
               <button
                 onClick={onOpenAuth}
-                className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"
+                className="h-10 px-2 sm:px-3 rounded-md hover:bg-slate-100 flex items-center gap-2 text-sm font-semibold text-slate-800"
               >
-                <User className="w-4 h-4 text-slate-600" />
-                <span>Sign In</span>
+                <User className="w-5 h-5" />
+                <span className="hidden sm:block">Login</span>
               </button>
             )}
 
             <AnimatePresence>
               {userDropdown && user && (
                 <motion.div
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-xl shadow-xl py-2 z-50 text-xs"
+                  exit={{ opacity: 0, y: 8 }}
+                  className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg py-2 text-sm z-50"
                 >
                   <div className="px-4 py-2 border-b border-slate-100">
-                    <p className="font-bold text-slate-900">{user.name}</p>
-                    <p className="text-slate-500 truncate">{user.phone}</p>
+                    <p className="font-bold text-slate-900 truncate">{user.name}</p>
+                    <p className="text-xs text-slate-500 truncate">{user.email || user.phone}</p>
                   </div>
                   <button
                     onClick={() => {
                       setUserDropdown(false);
                       onOpenTracking();
                     }}
-                    className="w-full text-left px-4 py-2 text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
+                    className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2"
                   >
-                    <PackageCheck className="w-4 h-4 text-cyan-600" />
+                    <PackageCheck className="w-4 h-4 text-slate-500" />
                     <span>My Orders</span>
                   </button>
                   <button
@@ -167,10 +146,10 @@ export default function Navbar({
                       setUserDropdown(false);
                       onLogout();
                     }}
-                    className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                    className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span>Log Out</span>
+                    <span>Log out</span>
                   </button>
                 </motion.div>
               )}
@@ -178,57 +157,81 @@ export default function Navbar({
           </div>
 
           <button
-            onClick={onOpenCart}
-            className="relative flex items-center space-x-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-full text-xs font-semibold transition-all shadow-sm group"
+            onClick={onOpenTracking}
+            className="hidden sm:flex h-10 px-3 rounded-md hover:bg-slate-100 items-center gap-2 text-sm font-semibold text-slate-800"
           >
-            <ShoppingBag className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
-            <span className="hidden sm:inline">Cart</span>
+            <PackageCheck className="w-5 h-5" />
+            <span>Orders</span>
+          </button>
+
+          <button className="hidden lg:flex h-10 px-3 rounded-md hover:bg-slate-100 items-center gap-2 text-sm font-semibold text-slate-800">
+            <Heart className="w-5 h-5" />
+            <span>{wishlistCount}</span>
+          </button>
+
+          <button
+            onClick={onOpenCart}
+            className="relative h-10 px-2 sm:px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-2 text-sm font-bold"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            <span className="hidden sm:block">Cart</span>
             {cartCount > 0 && (
-              <span className="bg-cyan-500 text-slate-950 font-bold px-1.5 py-0.5 rounded-full text-[10px] min-w-[18px] text-center ml-1">
+              <span className="min-w-5 h-5 px-1 rounded-full bg-amber-400 text-slate-950 text-xs flex items-center justify-center">
                 {cartCount}
               </span>
             )}
           </button>
 
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-slate-600 md:hidden rounded-lg hover:bg-slate-100"
+            onClick={() => setMobileMenuOpen((value) => !value)}
+            className="md:hidden h-10 w-10 rounded-md hover:bg-slate-100 flex items-center justify-center"
+            aria-label="Open menu"
           >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
-      <div className="px-4 pb-3 md:hidden">
+      <div className="px-3 pb-3 md:hidden">
         <div className="relative">
-          <Search className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
           <input
             type="text"
             placeholder="Search products..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-100 rounded-full text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full h-10 pl-10 pr-3 text-sm bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
           />
         </div>
       </div>
 
-      <div className="border-t border-slate-100 bg-slate-50/80 px-4 py-2 overflow-x-auto no-scrollbar">
-        <div className="max-w-7xl mx-auto flex items-center space-x-2 text-xs font-medium">
-          {CATEGORIES.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-3 py-1 rounded-full whitespace-nowrap transition-all ${
-                selectedCategory === category
-                  ? "bg-slate-900 text-white font-semibold shadow-sm"
-                  : "bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-      </div>
+      <AnimatePresence>
+        {(mobileMenuOpen || true) && (
+          <motion.div
+            initial={false}
+            className="border-t border-slate-200 bg-slate-50 overflow-x-auto no-scrollbar"
+          >
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 flex items-center gap-2 text-xs sm:text-sm">
+              {CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => {
+                    setSelectedCategory(category);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`px-3 py-1.5 rounded-md whitespace-nowrap border transition-colors ${
+                    selectedCategory === category
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

@@ -1,4 +1,8 @@
-export type OrderStatus = 'Placed' | 'Processing' | 'Shipped' | 'Out for Delivery' | 'Delivered';
+﻿export type OrderStatus = "Placed" | "Processing" | "Shipped" | "Out for Delivery" | "Delivered";
+
+export type PaymentMethod = "UPI" | "Card" | "NetBanking" | "COD";
+
+export type PaymentStatus = "Paid" | "Pending" | "Failed";
 
 export interface Product {
   id: string;
@@ -39,16 +43,29 @@ export interface ShippingAddress {
   landmark?: string;
 }
 
+export interface PaymentDetails {
+  provider?: "Manual" | "Razorpay" | "Stripe" | "UPI" | "COD";
+  gatewayStatus?: string;
+  transactionId?: string;
+  upiId?: string;
+  cardLast4?: string;
+  cardHolder?: string;
+  bankName?: string;
+  paymentNote?: string;
+}
+
 export interface Order {
-  id: string; // e.g. TECHAI-ORD-98412
+  id: string;
+  customerId?: string;
   items: CartItem[];
   shippingAddress: ShippingAddress;
   totalAmount: number;
   discountAmount: number;
   shippingFee: number;
   finalAmount: number;
-  paymentMethod: 'UPI' | 'Card' | 'NetBanking' | 'COD';
-  paymentStatus: 'Paid' | 'Pending';
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  paymentDetails?: PaymentDetails;
   status: OrderStatus;
   trackingNumber: string;
   courierName: string;
@@ -66,8 +83,9 @@ export interface User {
   id: string;
   name: string;
   phone: string;
-  email?: string;
+  email: string;
   avatar?: string;
   addresses?: ShippingAddress[];
+  role?: "customer" | "admin";
   isLoggedIn: boolean;
 }

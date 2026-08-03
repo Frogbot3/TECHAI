@@ -1,63 +1,58 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import Product from "@/models/Product";
 import { INITIAL_PRODUCTS } from "@/lib/data";
+import { toClientProduct } from "@/lib/serializers";
+
+const seedOperations = () =>
+  INITIAL_PRODUCTS.map((p) => ({
+    updateOne: {
+      filter: { productId: p.id },
+      update: {
+        $set: {
+          productId: p.id,
+          title: p.title,
+          brand: p.brand,
+          category: p.category,
+          price: p.price,
+          originalPrice: p.originalPrice,
+          discountPercent: p.discountPercent,
+          rating: p.rating,
+          reviewCount: p.reviewCount,
+          image: p.image,
+          stock: p.stock,
+          isAiProduct: !!p.isAiProduct,
+          isTrending: !!p.isTrending,
+          isBestSeller: !!p.isBestSeller,
+          description: p.description,
+          features: p.features,
+          specs: p.specs,
+        },
+      },
+      upsert: true,
+    },
+  }));
 
 export async function GET() {
   try {
     await connectToDatabase();
-    let products = await Product.find({}).sort({ createdAt: -1 });
 
-    if (products.length === 0) {
-      // Seed products to MongoDB on first run
-      const formattedInitial = INITIAL_PRODUCTS.map((p) => ({
-        productId: p.id,
-        title: p.title,
-        brand: p.brand,
-        category: p.category,
-        price: p.price,
-        originalPrice: p.originalPrice,
-        discountPercent: p.discountPercent,
-        rating: p.rating,
-        reviewCount: p.reviewCount,
-        image: p.image,
-        stock: p.stock,
-        isAiProduct: !!p.isAiProduct,
-        isTrending: !!p.isTrending,
-        isBestSeller: !!p.isBestSeller,
-        description: p.description,
-        features: p.features,
-        specs: p.specs,
-      }));
-
-      await Product.insertMany(formattedInitial);
-      products = await Product.find({}).sort({ createdAt: -1 });
+    if (process.env.SYNC_SEED_PRODUCTS !== "false") {
+      await Product.bulkWrite(seedOperations(), { ordered: false });
     }
 
-    const clientProducts = products.map((p) => ({
-      id: p.productId || p._id.toString(),
-      title: p.title,
-      brand: p.brand,
-      category: p.category,
-      price: p.price,
-      originalPrice: p.originalPrice,
-      discountPercent: p.discountPercent,
-      rating: p.rating,
-      reviewCount: p.reviewCount,
-      image: p.image,
-      stock: p.stock,
-      isAiProduct: p.isAiProduct,
-      isTrending: p.isTrending,
-      isBestSeller: p.isBestSeller,
-      description: p.description,
-      features: p.features,
-      specs: p.specs,
-    }));
+    const products = await Product.find({}).sort({ createdAt: -1 });
+    const clientProducts = products.map(toClientProduct);
 
     return NextResponse.json({ success: true, count: clientProducts.length, products: clientProducts });
   } catch (error) {
-    // Fallback to static seed data if database is offline
-    return NextResponse.json({ success: true, count: INITIAL_PRODUCTS.length, products: INITIAL_PRODUCTS, isFallback: true });
+    return NextResponse.json({
+      success: true,
+      count: INITIAL_PRODUCTS.length,
+      products: INITIAL_PRODUCTS,
+      isFallback: true,
+      message: "Using local catalog because MongoDB is not reachable.",
+    });
   }
 }
 
@@ -66,25 +61,31 @@ export async function POST(req: Request) {
     const body = await req.json();
     await connectToDatabase();
 
-    const newProduct = new Product({
-      productId: body.id || `prod-ai-${Date.now()}`,
+    const product = await Product.create({
+      productId: body.id || `prod-${Date.now()}`,
       title: body.title,
       brand: body.brand || "TECH AI",
-      category: body.category || "AI Electronics",
+      category: body.category || "Electronics",
       price: Number(body.price),
-      originalPrice: Number(body.originalPrice || body.price * 1.2),
-      discountPercent: Number(body.discountPercent || 15),
-      image: body.image || "https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=800",
-      stock: Number(body.stock || 20),
+      originalPrice: Number(body.originalPrice || body.price),
+      discountPercent: Number(body.discountPercent || 0),
+      rating: Number(body.rating || 4.2),
+      reviewCount: Number(body.reviewCount || 0),
+      image: body.image || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900&auto=format&fit=crop&q=80",
+      stock: Number(body.stock || 0),
       isAiProduct: !!body.isAiProduct,
-      description: body.description || "Next-generation AI product designed for maximum performance.",
-      features: body.features || ["AI Motion Sensor", "Wireless Sync", "High Precision"],
-      specs: body.specs || { Brand: "TECH AI", Warranty: "1 Year International" },
+      isTrending: !!body.isTrending,
+      isBestSeller: !!body.isBestSeller,
+      description: body.description || "Reliable product with fast delivery and customer support.",
+      features: Array.isArray(body.features) ? body.features : [],
+      specs: body.specs || {},
     });
 
-    await newProduct.save();
-
-    return NextResponse.json({ success: true, message: "Product created in Database successfully", product: newProduct });
+    return NextResponse.json({
+      success: true,
+      message: "Product saved to MongoDB.",
+      product: toClientProduct(product),
+    });
   } catch (error) {
     return NextResponse.json({ success: false, message: (error as Error).message }, { status: 500 });
   }

@@ -1,14 +1,18 @@
-import mongoose, { Schema, Document } from "mongoose";
+﻿import mongoose, { Schema, Document } from "mongoose";
 
 export interface IOrder extends Document {
-  orderId: string; // e.g. TECHAI-ORD-98412
+  orderId: string;
+  customerId?: string;
   userPhone: string;
   userEmail?: string;
   userName?: string;
   items: {
     productId: string;
     title: string;
+    brand?: string;
+    category?: string;
     price: number;
+    originalPrice?: number;
     quantity: number;
     image: string;
     selectedColor?: string;
@@ -30,7 +34,16 @@ export interface IOrder extends Document {
   finalAmount: number;
   paymentMethod: "UPI" | "Card" | "NetBanking" | "COD";
   paymentStatus: "Paid" | "Pending" | "Failed";
-  paymentTransactionId?: string;
+  paymentDetails?: {
+    provider?: string;
+    gatewayStatus?: string;
+    transactionId?: string;
+    upiId?: string;
+    cardLast4?: string;
+    cardHolder?: string;
+    bankName?: string;
+    paymentNote?: string;
+  };
   status: "Placed" | "Processing" | "Shipped" | "Out for Delivery" | "Delivered";
   trackingNumber: string;
   courierName: string;
@@ -47,14 +60,18 @@ export interface IOrder extends Document {
 const OrderSchema = new Schema<IOrder>(
   {
     orderId: { type: String, required: true, unique: true, index: true },
+    customerId: { type: String, default: "", index: true },
     userPhone: { type: String, required: true, index: true },
-    userEmail: { type: String, default: "" },
+    userEmail: { type: String, default: "", index: true },
     userName: { type: String, default: "" },
     items: [
       {
         productId: String,
         title: String,
+        brand: String,
+        category: String,
         price: Number,
+        originalPrice: Number,
         quantity: Number,
         image: String,
         selectedColor: String,
@@ -85,15 +102,24 @@ const OrderSchema = new Schema<IOrder>(
       enum: ["Paid", "Pending", "Failed"],
       default: "Pending",
     },
-    paymentTransactionId: { type: String, default: "" },
+    paymentDetails: {
+      provider: { type: String, default: "Manual" },
+      gatewayStatus: { type: String, default: "Gateway pending" },
+      transactionId: { type: String, default: "" },
+      upiId: { type: String, default: "" },
+      cardLast4: { type: String, default: "" },
+      cardHolder: { type: String, default: "" },
+      bankName: { type: String, default: "" },
+      paymentNote: { type: String, default: "" },
+    },
     status: {
       type: String,
       enum: ["Placed", "Processing", "Shipped", "Out for Delivery", "Delivered"],
       default: "Placed",
     },
     trackingNumber: { type: String, default: "" },
-    courierName: { type: String, default: "TechAI Express Express Courier" },
-    estimatedDelivery: { type: String, default: "3-5 Business Days" },
+    courierName: { type: String, default: "Tech AI Logistics" },
+    estimatedDelivery: { type: String, default: "3-5 business days" },
     statusHistory: [
       {
         status: String,

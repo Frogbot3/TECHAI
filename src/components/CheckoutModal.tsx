@@ -29,7 +29,7 @@ interface CheckoutModalProps {
     shippingAddress: ShippingAddress,
     paymentMethod: Order["paymentMethod"],
     discountCode?: string
-  ) => Order;
+  ) => Promise<Order> | Order;
   onOpenOrderTracking: (orderId: string) => void;
 }
 
@@ -77,11 +77,11 @@ export default function CheckoutModal({
     setStep("PAYMENT");
   };
 
-  const handlePaymentSubmit = () => {
+  const handlePaymentSubmit = async () => {
     setStep("PROCESSING");
 
-    setTimeout(() => {
-      const order = onCreateOrder(address, paymentMethod, appliedCoupon);
+    try {
+      const order = await Promise.resolve(onCreateOrder(address, paymentMethod, appliedCoupon));
       setPlacedOrder(order);
       setStep("SUCCESS");
 
@@ -94,7 +94,10 @@ export default function CheckoutModal({
       } catch (e) {
         console.log("Confetti burst", e);
       }
-    }, 2000);
+    } catch (e) {
+      alert("Unable to complete your order. Please try again.");
+      setStep("PAYMENT");
+    }
   };
 
   return (

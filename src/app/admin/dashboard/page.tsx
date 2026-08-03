@@ -6,6 +6,7 @@ import TechAiLogo from "@/components/TechAiLogo";
 import { useTechAiStore } from "@/lib/store";
 import { Product, Order, OrderStatus } from "@/lib/types";
 import { CATEGORIES } from "@/lib/data";
+import * as XLSX from "xlsx";
 import {
   Package,
   ShoppingBag,
@@ -68,6 +69,29 @@ export default function AdminDashboardPage() {
       localStorage.removeItem("techai_admin_session");
     }
     router.push("/admin/login");
+  };
+
+  const exportOrdersToExcel = () => {
+    const data = store.orders.map((order) => ({
+      "Order ID": order.id,
+      "Customer Name": order.shippingAddress.fullName,
+      "Phone": order.shippingAddress.phone,
+      "Email": order.shippingAddress.email,
+      "City": order.shippingAddress.city,
+      "State": order.shippingAddress.state,
+      "Pincode": order.shippingAddress.pincode,
+      "Payment Method": order.paymentMethod,
+      "Payment Status": order.paymentStatus,
+      "Order Status": order.status,
+      "Tracking Number": order.trackingNumber,
+      "Final Amount": order.finalAmount,
+      "Created At": order.createdAt,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+    XLSX.writeFile(workbook, `techai-orders-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const totalRevenue = store.orders.reduce((sum, o) => sum + o.finalAmount, 0);
@@ -206,6 +230,14 @@ export default function AdminDashboardPage() {
               <span>Add New Product</span>
             </button>
           )}
+
+          <button
+            onClick={exportOrdersToExcel}
+            className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all shadow-md"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Export Orders</span>
+          </button>
         </div>
 
         {activeTab === "PRODUCTS" && (
