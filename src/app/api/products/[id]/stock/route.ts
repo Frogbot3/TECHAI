@@ -1,7 +1,15 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
 import Product from "@/models/Product";
 import { toClientProduct } from "@/lib/serializers";
+
+const buildProductQuery = (id: string) => {
+  if (mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === id) {
+    return { $or: [{ productId: id }, { _id: id }] };
+  }
+  return { productId: id };
+};
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -9,7 +17,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { amount } = await req.json();
 
     await connectToDatabase();
-    const product = await Product.findOne({ $or: [{ productId: id }, { _id: id }] });
+    const product = await Product.findOne(buildProductQuery(id));
 
     if (!product) {
       return NextResponse.json({ success: false, message: "Product not found" }, { status: 404 });

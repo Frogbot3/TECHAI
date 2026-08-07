@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { CartItem, Order, OrderStatus, PaymentDetails, PaymentMethod, Product, ShippingAddress, User } from "./types";
@@ -64,24 +64,41 @@ export function useTechAiStore() {
     throw new Error(data.message || "Unable to load products");
   };
 
-  const refreshOrders = async (query?: string) => {
-    const url = query ? `/api/orders?query=${encodeURIComponent(query)}` : "/api/orders";
-    const response = await fetch(url);
-    const data = await response.json();
-    if (data.success && data.orders) {
-      const normalized = data.orders.map(toClientOrder);
-      if (!query) updateOrders(normalized);
-      return normalized;
+  const refreshOrders = async (query?: string, userCreds?: { id?: string; email?: string; phone?: string }) => {
+    const params = new URLSearchParams();
+    if (query) params.set("query", query);
+
+    const currentUser = userCreds || user;
+    if (currentUser?.id) params.set("customerId", currentUser.id);
+    if (currentUser?.email) params.set("email", currentUser.email);
+    if (currentUser?.phone) params.set("phone", currentUser.phone);
+
+    const url = params.toString() ? `/api/orders?${params.toString()}` : "/api/orders";
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.success && data.orders) {
+        const normalized = data.orders.map(toClientOrder);
+        updateOrders(normalized);
+        return normalized;
+      }
+    } catch (err) {
+      console.error("Refresh orders error:", err);
     }
-    throw new Error(data.message || "Unable to load orders");
+    return orders;
   };
 
   const refreshSession = async () => {
-    const response = await fetch("/api/auth/session");
-    const data = await response.json();
-    if (data.success && data.user) {
-      setAuthenticatedUser(data.user);
-      return data.user as User;
+    try {
+      const response = await fetch("/api/auth/session");
+      const data = await response.json();
+      if (data.success && data.user) {
+        const loggedUser = setAuthenticatedUser(data.user);
+        refreshOrders("", { id: loggedUser.id, email: loggedUser.email, phone: loggedUser.phone });
+        return loggedUser;
+      }
+    } catch {
+      // Session offline
     }
     return null;
   };
@@ -101,7 +118,11 @@ export function useTechAiStore() {
     setIsLoaded(true);
 
     refreshProducts().catch(() => {});
-    refreshOrders().catch(() => {});
+    if (loadedUser) {
+      refreshOrders("", { id: loadedUser.id, email: loadedUser.email, phone: loadedUser.phone });
+    } else {
+      refreshOrders().catch(() => {});
+    }
     refreshSession().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -215,6 +236,7 @@ export function useTechAiStore() {
     const cleanUser = { ...authenticatedUser, isLoggedIn: true };
     setUser(cleanUser);
     setStorage(USER_KEY, cleanUser);
+    refreshOrders("", { id: cleanUser.id, email: cleanUser.email, phone: cleanUser.phone });
     return cleanUser;
   };
 
@@ -225,13 +247,15 @@ export function useTechAiStore() {
       phone,
       email,
       isLoggedIn: true,
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || phone)}`,
+      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || phone || email)}`,
     });
   };
 
   const logoutUser = () => {
     setUser(null);
     setStorage(USER_KEY, null);
+    setOrders([]);
+    setStorage(ORDERS_KEY, []);
     fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
   };
 
@@ -256,7 +280,7 @@ export function useTechAiStore() {
       shippingFee,
       finalAmount,
       paymentMethod,
-      paymentStatus: "Pending",
+      paymentStatus: paymentMethod === "COD" ? "Pending" : "Paid",
       paymentDetails,
       status: "Placed",
       trackingNumber: `TA-${Math.floor(10000000 + Math.random() * 90000000)}`,
@@ -296,10 +320,10 @@ export function useTechAiStore() {
         }),
       });
       const data = await response.json();
-      if (!data.success) throw new Error(data.message || "Order failed");
+      if (!data.success) throw new Error(data.message || "Order creation failed");
       if (data.order) savedOrder = toClientOrder(data.order);
-    } catch {
-      // Keep a local order only when backend is unavailable.
+    } catch (err) {
+      console.error("Order creation error:", err);
     }
 
     const updatedOrders = [savedOrder, ...orders];

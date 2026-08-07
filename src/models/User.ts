@@ -1,12 +1,12 @@
-﻿import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
 export interface IUser extends Document {
-  phone: string;
+  phone?: string;
   name?: string;
   email?: string;
   avatar?: string;
   googleId?: string;
-  provider: "phone" | "google";
+  provider: "phone" | "email" | "google";
   otp?: string | null;
   otpExpiresAt?: Date | null;
   addresses: {
@@ -41,12 +41,12 @@ const AddressSchema = new Schema(
 
 const UserSchema = new Schema<IUser>(
   {
-    phone: { type: String, default: "", index: true },
+    phone: { type: String, default: "" },
     name: { type: String, default: "Tech AI Customer" },
-    email: { type: String, default: "", index: true },
+    email: { type: String, default: "" },
     avatar: { type: String, default: "" },
-    googleId: { type: String, default: "", index: true },
-    provider: { type: String, enum: ["phone", "google"], default: "phone" },
+    googleId: { type: String, default: "" },
+    provider: { type: String, enum: ["phone", "email", "google"], default: "phone" },
     otp: { type: String, default: null },
     otpExpiresAt: { type: Date, default: null },
     addresses: [AddressSchema],

@@ -1,4 +1,4 @@
-﻿import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
 export interface IOrder extends Document {
   orderId: string;
@@ -61,7 +61,7 @@ const OrderSchema = new Schema<IOrder>(
   {
     orderId: { type: String, required: true, unique: true, index: true },
     customerId: { type: String, default: "", index: true },
-    userPhone: { type: String, required: true, index: true },
+    userPhone: { type: String, default: "", index: true },
     userEmail: { type: String, default: "", index: true },
     userName: { type: String, default: "" },
     items: [
@@ -79,13 +79,13 @@ const OrderSchema = new Schema<IOrder>(
       },
     ],
     shippingAddress: {
-      fullName: { type: String, required: true },
-      phone: { type: String, required: true },
+      fullName: { type: String, default: "Customer" },
+      phone: { type: String, default: "" },
       email: { type: String, default: "" },
-      street: { type: String, required: true },
-      city: { type: String, required: true },
-      state: { type: String, required: true },
-      pincode: { type: String, required: true, index: true },
+      street: { type: String, default: "" },
+      city: { type: String, default: "" },
+      state: { type: String, default: "" },
+      pincode: { type: String, default: "" },
       landmark: { type: String, default: "" },
     },
     totalAmount: { type: Number, required: true },

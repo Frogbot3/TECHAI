@@ -1,9 +1,15 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
 import Product from "@/models/Product";
 import { toClientProduct } from "@/lib/serializers";
 
-const productFilter = (id: string) => ({ $or: [{ productId: id }, { _id: id }] });
+const buildProductQuery = (id: string) => {
+  if (mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === id) {
+    return { $or: [{ productId: id }, { _id: id }] };
+  }
+  return { productId: id };
+};
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -11,7 +17,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const body = await req.json();
     await connectToDatabase();
 
-    const product = await Product.findOneAndUpdate(productFilter(id), { $set: body }, { new: true });
+    const product = await Product.findOneAndUpdate(buildProductQuery(id), { $set: body }, { new: true });
 
     if (!product) {
       return NextResponse.json({ success: false, message: "Product not found" }, { status: 404 });
@@ -28,7 +34,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
     await connectToDatabase();
 
-    const product = await Product.findOneAndDelete(productFilter(id));
+    const product = await Product.findOneAndDelete(buildProductQuery(id));
 
     if (!product) {
       return NextResponse.json({ success: false, message: "Product not found" }, { status: 404 });

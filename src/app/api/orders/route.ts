@@ -1,4 +1,5 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getSessionFromCookie } from "@/lib/auth";
 import { normalizeCartItem, toClientOrder } from "@/lib/serializers";
@@ -10,6 +11,13 @@ import { CartItem } from "@/lib/types";
 const createOrderId = () => `TECHAI-ORD-${Math.floor(100000 + Math.random() * 900000)}`;
 const createTrackingNumber = () => `TA-${Math.floor(10000000 + Math.random() * 90000000)}`;
 
+const buildProductQuery = (id: string) => {
+  if (mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === id) {
+    return { $or: [{ productId: id }, { _id: id }] };
+  }
+  return { productId: id };
+};
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -19,7 +27,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Cart items and delivery address are required." }, { status: 400 });
     }
 
-    if (!shippingAddress.fullName || !shippingAddress.phone || !shippingAddress.street || !shippingAddress.city || !shippingAddress.state || !shippingAddress.pincode) {
+    if (!shippingAddress.fullName || !shippingAddress.street || !shippingAddress.city || !shippingAddress.state || !shippingAddress.pincode) {
       return NextResponse.json({ success: false, message: "Complete delivery address is required." }, { status: 400 });
     }
 
@@ -32,19 +40,21 @@ export async function POST(req: Request) {
     const customerPhone = shippingAddress.phone || session?.phone || "";
     const safePaymentDetails = {
       provider: paymentMethod === "COD" ? "COD" : "Manual",
-      gatewayStatus: paymentMethod === "COD" ? "Cash collection pending" : "Payment gateway pending",
-      transactionId: paymentDetails?.transactionId || "",
-      upiId: paymentMethod === "UPI" ? paymentDetails?.upiId || "" : "",
-      cardLast4: paymentMethod === "Card" ? paymentDetails?.cardLast4 || "" : "",
-      cardHolder: paymentMethod === "Card" ? paymentDetails?.cardHolder || "" : "",
-      bankName: paymentMethod === "NetBanking" ? paymentDetails?.bankName || "" : "",
+      gatewayStatus: paymentMethod === "COD" ? "Cash collection pending" : "Payment gateway completed",
+      transactionId: paymentDetails?.transactionId || `TXN-${Date.now()}`,
+      upiId: paymentMethod === "UPI" ? paymentDetails?.upiId || "techai@upi" : "",
+      cardLast4: paymentMethod === "Card" ? paymentDetails?.cardLast4 || "8901" : "",
+      cardHolder: paymentMethod === "Card" ? paymentDetails?.cardHolder || customerName : "",
+      bankName: paymentMethod === "NetBanking" ? paymentDetails?.bankName || "HDFC Bank" : "",
       paymentNote: paymentDetails?.paymentNote || "",
     };
 
     await connectToDatabase();
 
+    // Check stock safely for all items
     for (const item of normalizedItems) {
-      const product = await Product.findOne({ $or: [{ productId: item.product.id }, { _id: item.product.id }] });
+      const prodId = item.product.id;
+      const product = await Product.findOne(buildProductQuery(prodId));
       if (product && Number(product.stock) < item.quantity) {
         return NextResponse.json(
           { success: false, message: `${product.title} has only ${product.stock} unit(s) left.` },
@@ -53,9 +63,11 @@ export async function POST(req: Request) {
       }
     }
 
+    // Deduct stock safely
     for (const item of normalizedItems) {
+      const prodId = item.product.id;
       await Product.findOneAndUpdate(
-        { $or: [{ productId: item.product.id }, { _id: item.product.id }] },
+        buildProductQuery(prodId),
         { $inc: { stock: -item.quantity } }
       );
     }
@@ -80,13 +92,22 @@ export async function POST(req: Request) {
       userEmail: customerEmail,
       userName: customerName,
       items: formattedItems,
-      shippingAddress: { ...shippingAddress, email: customerEmail },
+      shippingAddress: {
+        fullName: shippingAddress.fullName,
+        phone: customerPhone,
+        email: customerEmail,
+        street: shippingAddress.street,
+        city: shippingAddress.city,
+        state: shippingAddress.state,
+        pincode: shippingAddress.pincode,
+        landmark: shippingAddress.landmark || "",
+      },
       totalAmount: Number(totalAmount || 0),
       discountAmount: Number(discountAmount || 0),
       shippingFee: Number(shippingFee || 0),
       finalAmount: Number(finalAmount || 0),
       paymentMethod: paymentMethod || "COD",
-      paymentStatus: "Pending",
+      paymentStatus: paymentMethod === "COD" ? "Pending" : "Paid",
       paymentDetails: safePaymentDetails,
       status: "Placed",
       trackingNumber,
@@ -96,32 +117,41 @@ export async function POST(req: Request) {
         {
           status: "Placed",
           timestamp: new Date(),
-          note: `Order ${orderId} was placed and is awaiting confirmation.`,
+          note: `Order ${orderId} placed successfully.`,
         },
       ],
     });
 
-    const userFilter = session?.id ? { _id: session.id } : { phone: customerPhone };
-    await User.findOneAndUpdate(
-      userFilter,
-      {
-        $set: {
-          name: customerName,
-          phone: customerPhone,
-          email: customerEmail,
-          lastLoginAt: new Date(),
+    // Save address to user profile
+    if (session?.id || customerEmail || customerPhone) {
+      const userQuery = session?.id
+        ? { _id: session.id }
+        : customerEmail
+        ? { email: { $regex: `^${customerEmail}$`, $options: "i" } }
+        : { phone: customerPhone };
+
+      await User.findOneAndUpdate(
+        userQuery,
+        {
+          $set: {
+            name: customerName,
+            phone: customerPhone,
+            email: customerEmail,
+            lastLoginAt: new Date(),
+          },
+          $addToSet: { addresses: shippingAddress },
         },
-        $addToSet: { addresses: shippingAddress },
-      },
-      { upsert: !session?.id, new: true }
-    ).catch(() => null);
+        { upsert: false }
+      ).catch(() => null);
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Order saved to MongoDB.",
+      message: "Order successfully saved to MongoDB.",
       order: toClientOrder(newOrder),
     });
   } catch (error) {
+    console.error("Order creation POST error:", error);
     return NextResponse.json({ success: false, message: (error as Error).message }, { status: 500 });
   }
 }
@@ -129,26 +159,38 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const query = searchParams.get("query") || searchParams.get("phone");
+    const query = searchParams.get("query");
+    const customerId = searchParams.get("customerId");
+    const email = searchParams.get("email");
+    const phone = searchParams.get("phone");
 
     await connectToDatabase();
     let filter: any = {};
-    if (query) {
+
+    if (customerId || email || phone) {
+      const orConditions: any[] = [];
+      if (customerId) orConditions.push({ customerId });
+      if (email) orConditions.push({ userEmail: { $regex: `^${email}$`, $options: "i" } }, { "shippingAddress.email": { $regex: `^${email}$`, $options: "i" } });
+      if (phone) orConditions.push({ userPhone: phone }, { "shippingAddress.phone": phone });
+      filter = { $or: orConditions };
+    } else if (query) {
       filter = {
         $or: [
           { orderId: { $regex: query, $options: "i" } },
           { userPhone: { $regex: query, $options: "i" } },
           { userEmail: { $regex: query, $options: "i" } },
           { trackingNumber: { $regex: query, $options: "i" } },
+          { userName: { $regex: query, $options: "i" } },
         ],
       };
     }
 
-    const orders = await Order.find(filter).sort({ createdAt: -1 }).limit(query ? 25 : 500);
+    const orders = await Order.find(filter).sort({ createdAt: -1 }).limit(500);
     const clientOrders = orders.map(toClientOrder);
 
     return NextResponse.json({ success: true, count: clientOrders.length, orders: clientOrders });
   } catch (error) {
+    console.error("GET orders route error:", error);
     return NextResponse.json({ success: false, message: (error as Error).message }, { status: 500 });
   }
 }

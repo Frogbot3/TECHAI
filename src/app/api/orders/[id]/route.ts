@@ -1,21 +1,22 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
 import { toClientOrder } from "@/lib/serializers";
 import Order from "@/models/Order";
+
+const buildOrderQuery = (id: string) => {
+  if (mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === id) {
+    return { $or: [{ orderId: id }, { trackingNumber: id }, { userPhone: id }, { userEmail: id }, { _id: id }] };
+  }
+  return { $or: [{ orderId: id }, { trackingNumber: id }, { userPhone: id }, { userEmail: id }] };
+};
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     await connectToDatabase();
 
-    const order = await Order.findOne({
-      $or: [
-        { orderId: id },
-        { trackingNumber: id },
-        { userPhone: id },
-        { userEmail: id },
-      ],
-    }).sort({ createdAt: -1 });
+    const order = await Order.findOne(buildOrderQuery(id)).sort({ createdAt: -1 });
 
     if (!order) {
       return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });
@@ -33,7 +34,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { status, courierName, trackingNumber, note, paymentStatus } = await req.json();
 
     await connectToDatabase();
-    const order = await Order.findOne({ $or: [{ orderId: id }, { _id: id }] });
+    const order = await Order.findOne(buildOrderQuery(id));
 
     if (!order) {
       return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });
