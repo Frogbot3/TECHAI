@@ -1,4 +1,4 @@
-﻿import { CartItem, Order, OrderStatus, Product, User } from "./types";
+import { CartItem, Order, OrderStatus, Product, User } from "./types";
 
 const toPlain = (value: any) => {
   if (!value) return value;
@@ -40,6 +40,7 @@ export function toClientProduct(value: any): Product {
     features: Array.isArray(product.features) ? product.features : [],
     specs: specsToObject(product.specs),
     createdAt: product.createdAt ? dateToString(product.createdAt) : undefined,
+    reviews: Array.isArray(product.reviews) ? product.reviews : [],
   };
 }
 

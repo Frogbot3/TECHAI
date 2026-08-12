@@ -1,4 +1,4 @@
-﻿import { Product } from "./types";
+import { Product } from "./types";
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
@@ -28,7 +28,27 @@ export const INITIAL_PRODUCTS: Product[] = [
       Battery: "Up to 7 days",
       Connectivity: "Bluetooth",
       Warranty: "1 year brand warranty"
-    }
+    },
+    reviews: [
+      {
+        id: "rev-1",
+        productId: "prod-pig-stress-toy",
+        userName: "Aarav Sharma",
+        rating: 5,
+        comment: "Excellent battery life and super crisp bluetooth calls. Really impressed with TECH AI delivery speed!",
+        date: "2026-08-01",
+        verifiedPurchase: true
+      },
+      {
+        id: "rev-2",
+        productId: "prod-pig-stress-toy",
+        userName: "Priya Patel",
+        rating: 4,
+        comment: "Vibrant screen and smooth step tracking. Great value for money.",
+        date: "2026-08-05",
+        verifiedPurchase: true
+      }
+    ]
   },
   {
     id: "prod-adidas-f50-cleats",

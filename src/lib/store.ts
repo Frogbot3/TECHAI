@@ -386,6 +386,36 @@ export function useTechAiStore() {
     setStorage(WISHLIST_KEY, updated);
   };
 
+  const addReviewToProduct = (productId: string, reviewData: { userName: string; rating: number; comment: string }) => {
+    const updatedProducts = products.map((prod) => {
+      if (prod.id === productId) {
+        const existingReviews = prod.reviews || [];
+        const newReview = {
+          id: `rev-${Date.now()}`,
+          productId,
+          userName: reviewData.userName || "Verified Buyer",
+          rating: Number(reviewData.rating),
+          comment: reviewData.comment,
+          date: new Date().toISOString().split("T")[0],
+          verifiedPurchase: true,
+        };
+        const newReviews = [newReview, ...existingReviews];
+        const newReviewCount = prod.reviewCount + 1;
+        const totalStars = existingReviews.reduce((sum, r) => sum + r.rating, prod.rating * prod.reviewCount) + reviewData.rating;
+        const newRating = Number((totalStars / newReviewCount).toFixed(1));
+
+        return {
+          ...prod,
+          reviews: newReviews,
+          reviewCount: newReviewCount,
+          rating: Math.min(5, Math.max(1, newRating)),
+        };
+      }
+      return prod;
+    });
+    updateProducts(updatedProducts);
+  };
+
   return {
     isLoaded,
     products,
@@ -410,5 +440,6 @@ export function useTechAiStore() {
     logoutUser,
     createOrder,
     toggleWishlist,
+    addReviewToProduct,
   };
 }

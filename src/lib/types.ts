@@ -1,8 +1,18 @@
-﻿export type OrderStatus = "Placed" | "Processing" | "Shipped" | "Out for Delivery" | "Delivered";
+export type OrderStatus = "Placed" | "Processing" | "Shipped" | "Out for Delivery" | "Delivered";
 
 export type PaymentMethod = "UPI" | "Card" | "NetBanking" | "COD";
 
 export type PaymentStatus = "Paid" | "Pending" | "Failed";
+
+export interface Review {
+  id: string;
+  productId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  date: string;
+  verifiedPurchase?: boolean;
+}
 
 export interface Product {
   id: string;
@@ -23,6 +33,7 @@ export interface Product {
   features: string[];
   specs: Record<string, string>;
   createdAt?: string;
+  reviews?: Review[];
 }
 
 export interface CartItem {
