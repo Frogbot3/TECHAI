@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { useTechAiStore } from "@/lib/store";
 import Navbar from "@/components/Navbar";
+import MobileBottomNav from "@/components/MobileBottomNav";
 import HeroCarousel from "@/components/HeroCarousel";
 import ProductCard from "@/components/ProductCard";
 import ProductDetailModal from "@/components/ProductDetailModal";
@@ -10,9 +11,12 @@ import CartDrawer from "@/components/CartDrawer";
 import AuthModal from "@/components/AuthModal";
 import CheckoutModal from "@/components/CheckoutModal";
 import OrderTrackingModal from "@/components/OrderTrackingModal";
+import InvoicePreviewModal from "@/components/InvoicePreviewModal";
+import WriteReviewModal from "@/components/WriteReviewModal";
 import TechAiLogo from "@/components/TechAiLogo";
 import { Product, CartItem, ShippingAddress, Order } from "@/lib/types";
-import { Sparkles, ShieldCheck, Truck, RefreshCw, Filter, SlidersHorizontal } from "lucide-react";
+import { Sparkles, ShieldCheck, Truck, RefreshCw, Filter, SlidersHorizontal, Package, Heart } from "lucide-react";
+import Link from "next/link";
 
 export default function HomePage() {
   const store = useTechAiStore();
@@ -28,6 +32,8 @@ export default function HomePage() {
   const [isTrackingOpen, setIsTrackingOpen] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<string | undefined>(undefined);
   const [trackingOrderId, setTrackingOrderId] = useState<string>("");
+  const [activeInvoiceOrder, setActiveInvoiceOrder] = useState<Order | null>(null);
+  const [reviewProduct, setReviewProduct] = useState<any | null>(null);
 
   const filteredProducts = useMemo(() => {
     return store.products
@@ -70,7 +76,7 @@ export default function HomePage() {
   const cartCount = store.cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col justify-between selection:bg-cyan-500 selection:text-slate-950">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col justify-between selection:bg-cyan-500 selection:text-slate-950 pb-20 md:pb-0">
       <Navbar
         cartCount={cartCount}
         wishlistCount={store.wishlist.length}
@@ -81,7 +87,10 @@ export default function HomePage() {
         setSelectedCategory={setSelectedCategory}
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
-        onOpenTracking={() => setIsTrackingOpen(true)}
+        onOpenTracking={() => {
+          setTrackingOrderId("");
+          setIsTrackingOpen(true);
+        }}
         onLogout={store.logoutUser}
       />
 
@@ -92,9 +101,9 @@ export default function HomePage() {
 
         <div className="px-4 sm:px-6 lg:px-8 pt-8 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center space-x-2">
+            <h2 className="text-xl sm:text-2xl font-black text-slate-950 flex items-center space-x-2">
               <span>{selectedCategory}</span>
-              <span className="text-xs font-semibold text-slate-400 bg-slate-200 px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-bold text-slate-500 bg-slate-200 px-2.5 py-0.5 rounded-full">
                 {filteredProducts.length} items
               </span>
             </h2>
@@ -103,13 +112,13 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-semibold">
+          <div className="flex items-center space-x-2 bg-white px-3.5 py-2 rounded-2xl border border-slate-200 shadow-sm text-xs font-bold">
             <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
             <span className="text-slate-500">Sort by:</span>
             <select
               value={sortBy}
               onChange={(e: any) => setSortBy(e.target.value)}
-              className="bg-transparent focus:outline-none text-slate-800 font-bold cursor-pointer"
+              className="bg-transparent focus:outline-none text-slate-900 font-extrabold cursor-pointer"
             >
               <option value="featured">Featured</option>
               <option value="price-low">Price: Low to High</option>
@@ -130,13 +139,13 @@ export default function HomePage() {
                   setSearchQuery("");
                   setSelectedCategory("All Categories");
                 }}
-                className="px-4 py-2 bg-slate-900 text-white rounded-full text-xs font-bold"
+                className="px-5 py-2.5 bg-slate-900 text-white rounded-full text-xs font-bold"
               >
                 Reset Filters
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6 items-stretch">
               {filteredProducts.map((product) => (
                 <ProductCard
                   key={product.id}
@@ -166,17 +175,18 @@ export default function HomePage() {
             <ul className="space-y-2">
               <li><button onClick={() => setSelectedCategory("AI Electronics")} className="hover:text-white">AI Electronics</button></li>
               <li><button onClick={() => setSelectedCategory("Toys & Stress Relief")} className="hover:text-white">Toys & Stress Relief</button></li>
-              <li><button onClick={() => setSelectedCategory("Footwear & Sports")} className="hover:text-white">Footwear & Sports</button></li>
-              <li><button onClick={() => setSelectedCategory("Watches & Accessories")} className="hover:text-white">Watches & Accessories</button></li>
+              <li><button onClick={() => setSelectedCategory("Fashion")} className="hover:text-white">Fashion & Wearables</button></li>
+              <li><button onClick={() => setSelectedCategory("Mobiles & Wearables")} className="hover:text-white">Mobiles & Wearables</button></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-extrabold text-white uppercase tracking-wider mb-3">Customer Care</h4>
             <ul className="space-y-2">
+              <li><Link href="/orders" className="hover:text-cyan-400 font-bold text-slate-300">My Orders & Invoices</Link></li>
               <li><button onClick={() => setIsTrackingOpen(true)} className="hover:text-white">Live Order Tracking</button></li>
               <li><button onClick={() => setIsAuthOpen(true)} className="hover:text-white">Account Login & OTP</button></li>
-              <li><a href="/admin/login" className="hover:text-amber-400 text-slate-300 font-bold">Admin Portal Dashboard</a></li>
+              <li><Link href="/admin/login" className="hover:text-amber-400 text-slate-300 font-bold">Admin Control Portal</Link></li>
             </ul>
           </div>
 
@@ -200,13 +210,17 @@ export default function HomePage() {
         </div>
       </footer>
 
+      {/* Product Quick View & Reviews Modal */}
       <ProductDetailModal
         product={quickViewProduct}
+        user={store.user}
         onClose={() => setQuickViewProduct(null)}
         onAddToCart={store.addToCart}
         onBuyNow={handleBuyNow}
+        onReviewSubmitted={store.addReviewToProduct}
       />
 
+      {/* Cart Drawer */}
       <CartDrawer
         isOpen={isCartOpen}
         cart={store.cart}
@@ -216,6 +230,7 @@ export default function HomePage() {
         onProceedToCheckout={handleProceedToCheckout}
       />
 
+      {/* Auth Modal */}
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
@@ -225,6 +240,7 @@ export default function HomePage() {
         }}
       />
 
+      {/* Overhauled Checkout Modal */}
       <CheckoutModal
         isOpen={isCheckoutOpen}
         cart={store.cart}
@@ -238,11 +254,42 @@ export default function HomePage() {
         }}
       />
 
+      {/* Animated Order Tracking Modal */}
       <OrderTrackingModal
         isOpen={isTrackingOpen}
         orders={store.orders}
         initialOrderId={trackingOrderId}
         onClose={() => setIsTrackingOpen(false)}
+        onOpenInvoice={(ord) => setActiveInvoiceOrder(ord)}
+        onWriteReview={(prod) => setReviewProduct(prod)}
+      />
+
+      {/* Printable Invoice Modal */}
+      <InvoicePreviewModal
+        isOpen={!!activeInvoiceOrder}
+        order={activeInvoiceOrder}
+        onClose={() => setActiveInvoiceOrder(null)}
+      />
+
+      {/* Standalone Write Review Modal */}
+      <WriteReviewModal
+        isOpen={!!reviewProduct}
+        product={reviewProduct}
+        user={store.user}
+        onClose={() => setReviewProduct(null)}
+        onReviewSubmitted={(productId, rev) => {
+          store.addReviewToProduct(productId, rev);
+        }}
+      />
+
+      {/* Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        cartCount={cartCount}
+        wishlistCount={store.wishlist.length}
+        onOpenCart={() => setIsCartOpen(true)}
+        onOpenAuth={() => {
+          if (!store.user) setIsAuthOpen(true);
+        }}
       />
     </div>
   );

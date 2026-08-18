@@ -28,12 +28,12 @@ export default function ProductCard({
     <motion.article
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -3 }}
+      whileHover={{ y: -4 }}
       transition={{ duration: 0.2 }}
-      className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-lg hover:border-slate-300 transition-all group"
+      className="relative flex h-full min-h-[420px] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:border-cyan-200/80 transition-all group"
     >
-      {/* Top Badges */}
-      <div className="absolute left-2.5 top-2.5 z-10 flex flex-col gap-1 items-start">
+      {/* Top Badges — fixed height container */}
+      <div className="absolute left-2.5 top-2.5 z-10 flex flex-col gap-1 items-start min-h-[52px]">
         {product.discountPercent > 0 && (
           <span className="rounded-lg bg-emerald-600 px-2 py-0.5 text-[10px] font-extrabold text-white shadow-sm">
             {product.discountPercent}% OFF
@@ -69,14 +69,14 @@ export default function ProductCard({
       <button
         type="button"
         onClick={() => onQuickView(product)}
-        className="relative aspect-square w-full bg-slate-50/80 p-4 flex items-center justify-center overflow-hidden border-b border-slate-100 group-hover:bg-slate-100/50 transition-colors cursor-pointer"
+        className="relative aspect-square w-full flex-shrink-0 bg-gradient-to-br from-slate-50 to-slate-100/80 p-4 flex items-center justify-center overflow-hidden border-b border-slate-100 group-hover:from-cyan-50/50 group-hover:to-slate-100 transition-colors cursor-pointer"
       >
         {!imgError && product.image ? (
           <img
             src={product.image}
             alt={product.title}
             onError={() => setImgError(true)}
-            className="h-full w-full object-contain object-center transition-transform duration-500 group-hover:scale-105"
+            className="h-full w-full max-h-full object-contain object-center transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="flex flex-col items-center justify-center p-4 text-center text-slate-400 space-y-2">
@@ -88,14 +88,14 @@ export default function ProductCard({
         )}
       </button>
 
-      {/* Card Details Body */}
-      <div className="flex flex-1 flex-col justify-between p-4 space-y-3">
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2 text-xs">
+      {/* Card Details Body — flex-grow for equal alignment */}
+      <div className="flex flex-1 flex-col p-4">
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center justify-between gap-2 text-xs min-h-[20px]">
             <span className="truncate font-bold text-slate-400 uppercase tracking-wider text-[10px]">
               {product.brand}
             </span>
-            <span className="flex items-center gap-1 text-xs font-extrabold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md">
+            <span className="flex items-center gap-1 text-xs font-extrabold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md flex-shrink-0">
               <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
               {product.rating}
             </span>
@@ -103,34 +103,35 @@ export default function ProductCard({
 
           <button
             onClick={() => onQuickView(product)}
-            className="line-clamp-2 h-10 text-left text-sm font-extrabold leading-snug text-slate-900 hover:text-cyan-600 transition-colors"
+            className="line-clamp-2 h-10 w-full text-left text-sm font-extrabold leading-snug text-slate-900 hover:text-cyan-600 transition-colors"
           >
             {product.title}
           </button>
 
-          <p className="text-[11px] text-slate-500 font-medium">
-            {product.reviewCount.toLocaleString()} verified customer reviews
+          <p className="text-[11px] text-slate-500 font-medium h-4">
+            {product.reviewCount.toLocaleString()} verified reviews
           </p>
+
+          {/* Stock Status — always same height */}
+          <div className="h-6 flex items-center">
+            {isLowStock ? (
+              <div className="flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                <span>Only {product.stock} left</span>
+              </div>
+            ) : isOutOfStock ? (
+              <div className="flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">
+                <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                <span>Out of stock</span>
+              </div>
+            ) : (
+              <span className="text-[11px] text-emerald-600 font-semibold">✓ In Stock</span>
+            )}
+          </div>
         </div>
 
-        {/* Stock Status Badge */}
-        <div className="min-h-6 flex items-center">
-          {isLowStock && (
-            <div className="flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">
-              <AlertCircle className="h-3 w-3 flex-shrink-0" />
-              <span>Only {product.stock} left in stock</span>
-            </div>
-          )}
-          {isOutOfStock && (
-            <div className="flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">
-              <AlertCircle className="h-3 w-3 flex-shrink-0" />
-              <span>Out of stock</span>
-            </div>
-          )}
-        </div>
-
-        {/* Card Footer: Price & Action */}
-        <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+        {/* Card Footer — pinned to bottom */}
+        <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 mt-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-baseline gap-1.5">
               <span className="text-base sm:text-lg font-black text-slate-950">
@@ -159,7 +160,7 @@ export default function ProductCard({
               className={`flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-black transition-all ${
                 isOutOfStock
                   ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                  : "bg-slate-900 text-white hover:bg-cyan-600 shadow-sm hover:shadow"
+                  : "bg-slate-900 text-white hover:bg-cyan-600 shadow-sm hover:shadow-md"
               }`}
             >
               <ShoppingCart className="h-3.5 w-3.5 text-amber-400" />

@@ -1,5 +1,14 @@
 import mongoose, { Schema, Document } from "mongoose";
 
+export interface IProductReview {
+  reviewId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  date: string;
+  verifiedPurchase?: boolean;
+}
+
 export interface IProduct extends Document {
   productId: string;
   title: string;
@@ -18,6 +27,7 @@ export interface IProduct extends Document {
   description: string;
   features: string[];
   specs: Record<string, string>;
+  reviews: IProductReview[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +51,16 @@ const ProductSchema = new Schema<IProduct>(
     description: { type: String, default: "" },
     features: [{ type: String }],
     specs: { type: Map, of: String, default: {} },
+    reviews: [
+      {
+        reviewId: { type: String, required: true },
+        userName: { type: String, required: true },
+        rating: { type: Number, required: true, min: 1, max: 5 },
+        comment: { type: String, required: true },
+        date: { type: String, default: "" },
+        verifiedPurchase: { type: Boolean, default: false },
+      },
+    ],
   },
   { timestamps: true }
 );

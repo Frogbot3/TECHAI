@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import TechAiLogo from "@/components/TechAiLogo";
 import { Product, Order, OrderStatus, User } from "@/lib/types";
 import { CATEGORIES } from "@/lib/data";
@@ -74,6 +75,8 @@ export default function AdminDashboardPage() {
   const [refillModalProduct, setRefillModalProduct] = useState<Product | null>(null);
   const [refillAmount, setRefillAmount] = useState(10);
 
+  const [authChecking, setAuthChecking] = useState(true);
+
   // Fetch real-time live statistics and orders from MongoDB
   const fetchLiveData = useCallback(async (showIndicator = false) => {
     if (showIndicator) setIsRefreshing(true);
@@ -95,27 +98,37 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  // Initial load and 5-second periodic polling for live customer-to-admin sync
+  // Verify admin session via secure httpOnly cookie
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const session = localStorage.getItem("techai_admin_session");
-      if (!session) {
+    const verifySession = async () => {
+      try {
+        const res = await fetch("/api/admin/session", { cache: "no-store" });
+        const data = await res.json();
+        if (!data.success) {
+          router.push("/admin/login");
+          return;
+        }
+        setAuthChecking(false);
+        fetchLiveData();
+      } catch {
         router.push("/admin/login");
-        return;
       }
-    }
-
-    fetchLiveData();
-    const interval = setInterval(() => {
-      fetchLiveData(false);
-    }, 5000);
-
-    return () => clearInterval(interval);
+    };
+    verifySession();
   }, [router, fetchLiveData]);
 
-  const handleLogout = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("techai_admin_session");
+  // Periodic polling for live customer-to-admin sync
+  useEffect(() => {
+    if (authChecking) return;
+    const interval = setInterval(() => fetchLiveData(false), 5000);
+    return () => clearInterval(interval);
+  }, [authChecking, fetchLiveData]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/admin/logout", { method: "POST" });
+    } catch {
+      /* proceed to login regardless */
     }
     router.push("/admin/login");
   };
@@ -238,20 +251,65 @@ export default function AdminDashboardPage() {
     c.phone.toLowerCase().includes(customerSearch.toLowerCase())
   );
 
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-10 h-10 border-2 border-cyan-500/30 border-t-cyan-400 rounded-full"
+        />
+      </div>
+    );
+  }
+
+  const statCards = [
+    { label: "Total Sales", value: `₹${stats.totalRevenue.toLocaleString()}`, sub: `From ${stats.totalOrdersCount} order(s)`, icon: DollarSign, color: "emerald", glow: "shadow-emerald-500/20" },
+    { label: "Total Orders", value: String(stats.totalOrdersCount), sub: "Live order tracking active", icon: ShoppingBag, color: "cyan", glow: "shadow-cyan-500/20" },
+    { label: "Catalog Items", value: String(stats.totalProductsCount), sub: "Products in MongoDB", icon: Package, color: "purple", glow: "shadow-purple-500/20" },
+    { label: "Low Stock", value: String(stats.lowStockCount), sub: "Products with ≤ 5 stock", icon: AlertCircle, color: "amber", glow: "shadow-amber-500/20", highlight: true },
+    { label: "Registered Users", value: String(stats.totalCustomersCount), sub: "Google / Phone / Email", icon: Users, color: "blue", glow: "shadow-blue-500/20" },
+  ];
+
+  const tabs = [
+    { id: "ANALYTICS" as const, label: "Overview & Analytics", icon: BarChart3 },
+    { id: "PRODUCTS" as const, label: "Products & Stock", icon: Package },
+    { id: "ORDERS" as const, label: `Live Orders (${orders.length})`, icon: Truck },
+    { id: "CUSTOMERS" as const, label: `Customer Directory (${customers.length})`, icon: Users },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col selection:bg-cyan-500 selection:text-slate-950">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col selection:bg-cyan-500 selection:text-slate-950 relative overflow-hidden">
+      {/* Animated cosmic background */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <motion.div
+          animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
+          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[100px]"
+        />
+        <motion.div
+          animate={{ x: [0, -40, 0], y: [0, 30, 0] }}
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[120px]"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(6,182,212,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.02)_1px,transparent_1px)] bg-[size:64px_64px]" />
+      </div>
       {/* Top Header Navigation */}
-      <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-30 shadow-lg">
+      <header className="bg-slate-900/60 backdrop-blur-xl border-b border-slate-800/80 sticky top-0 z-30 shadow-lg shadow-black/20 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <TechAiLogo size="md" />
             <div className="flex items-center space-x-2">
-              <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
-                ADMIN CONTROL CENTER
+              <span className="bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                ⚡ ADMIN HQ
               </span>
               <span className="hidden sm:flex items-center space-x-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2.5 py-1 rounded-full">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>MongoDB Connected</span>
+                <motion.span
+                  animate={{ scale: [1, 1.4, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-2 h-2 rounded-full bg-emerald-400"
+                />
+                <span>Live Sync Active</span>
               </span>
             </div>
           </div>
@@ -289,124 +347,63 @@ export default function AdminDashboardPage() {
       </header>
 
       {/* Main Dashboard Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 relative z-10">
 
         {/* Live Metrics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="bg-slate-900/80 backdrop-blur border border-slate-800 p-5 rounded-2xl space-y-2 relative overflow-hidden group shadow-xl">
-            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition">
-              <DollarSign className="w-16 h-16 text-emerald-400" />
-            </div>
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider">Total Sales</span>
-              <DollarSign className="w-4 h-4 text-emerald-400" />
-            </div>
-            <p className="text-xl sm:text-2xl font-black text-white">₹{stats.totalRevenue.toLocaleString()}</p>
-            <p className="text-[11px] font-semibold text-emerald-400 flex items-center space-x-1">
-              <TrendingUp className="w-3 h-3" />
-              <span>From {stats.totalOrdersCount} order(s)</span>
-            </p>
-          </div>
-
-          <div className="bg-slate-900/80 backdrop-blur border border-slate-800 p-5 rounded-2xl space-y-2 relative overflow-hidden group shadow-xl">
-            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition">
-              <ShoppingBag className="w-16 h-16 text-cyan-400" />
-            </div>
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider">Total Orders</span>
-              <ShoppingBag className="w-4 h-4 text-cyan-400" />
-            </div>
-            <p className="text-xl sm:text-2xl font-black text-white">{stats.totalOrdersCount}</p>
-            <p className="text-[11px] font-semibold text-cyan-400">Live order tracking active</p>
-          </div>
-
-          <div className="bg-slate-900/80 backdrop-blur border border-slate-800 p-5 rounded-2xl space-y-2 relative overflow-hidden group shadow-xl">
-            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition">
-              <Package className="w-16 h-16 text-purple-400" />
-            </div>
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider">Catalog Items</span>
-              <Package className="w-4 h-4 text-purple-400" />
-            </div>
-            <p className="text-xl sm:text-2xl font-black text-white">{stats.totalProductsCount}</p>
-            <p className="text-[11px] font-semibold text-purple-400">Products in MongoDB</p>
-          </div>
-
-          <div className="bg-slate-900/80 backdrop-blur border border-slate-800 p-5 rounded-2xl space-y-2 relative overflow-hidden group shadow-xl">
-            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition">
-              <AlertCircle className="w-16 h-16 text-amber-400" />
-            </div>
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider">Low Stock</span>
-              <AlertCircle className="w-4 h-4 text-amber-400" />
-            </div>
-            <p className="text-xl sm:text-2xl font-black text-amber-400">{stats.lowStockCount}</p>
-            <p className="text-[11px] font-semibold text-amber-400/80">Products with ≤ 5 stock</p>
-          </div>
-
-          <div className="bg-slate-900/80 backdrop-blur border border-slate-800 p-5 rounded-2xl space-y-2 relative overflow-hidden group shadow-xl col-span-2 md:col-span-1">
-            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition">
-              <Users className="w-16 h-16 text-blue-400" />
-            </div>
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider">Registered Users</span>
-              <Users className="w-4 h-4 text-blue-400" />
-            </div>
-            <p className="text-xl sm:text-2xl font-black text-white">{stats.totalCustomersCount}</p>
-            <p className="text-[11px] font-semibold text-blue-400">Google / Phone / Email</p>
-          </div>
+          {statCards.map((card, idx) => {
+            const Icon = card.icon;
+            return (
+              <motion.div
+                key={card.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.08 }}
+                whileHover={{ y: -4, scale: 1.02 }}
+                className={`bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 p-5 rounded-2xl space-y-2 relative overflow-hidden group shadow-xl ${card.glow} ${
+                  idx === 4 ? "col-span-2 md:col-span-1" : ""
+                }`}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition">
+                  <Icon className="w-16 h-16 text-cyan-400" />
+                </div>
+                <div className="flex items-center justify-between text-slate-400 relative">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider">{card.label}</span>
+                  <Icon className={`w-4 h-4 text-${card.color}-400`} />
+                </div>
+                <p className={`text-xl sm:text-2xl font-black relative ${card.highlight ? "text-amber-400" : "text-white"}`}>
+                  {card.value}
+                </p>
+                <p className={`text-[11px] font-semibold text-${card.color}-400 relative`}>{card.sub}</p>
+              </motion.div>
+            );
+          })}
         </div>
 
         {/* Navigation Tabs Bar */}
-        <div className="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 gap-3">
+        <div className="flex flex-wrap items-center justify-between border-b border-slate-800/80 pb-3 gap-3">
           <div className="flex flex-wrap gap-2 text-xs font-bold">
-            <button
-              onClick={() => setActiveTab("ANALYTICS")}
-              className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 ${
-                activeTab === "ANALYTICS"
-                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-lg shadow-cyan-500/20"
-                  : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>Overview & Analytics</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("PRODUCTS")}
-              className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 ${
-                activeTab === "PRODUCTS"
-                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-lg shadow-cyan-500/20"
-                  : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
-              }`}
-            >
-              <Package className="w-4 h-4" />
-              <span>Products & Stock</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("ORDERS")}
-              className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 ${
-                activeTab === "ORDERS"
-                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-lg shadow-cyan-500/20"
-                  : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
-              }`}
-            >
-              <Truck className="w-4 h-4" />
-              <span>Live Orders ({orders.length})</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("CUSTOMERS")}
-              className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 ${
-                activeTab === "CUSTOMERS"
-                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-lg shadow-cyan-500/20"
-                  : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>Customer Directory ({customers.length})</span>
-            </button>
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <motion.button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  className={`px-4 py-2.5 rounded-xl transition-all flex items-center space-x-2 ${
+                    isActive
+                      ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black shadow-lg shadow-cyan-500/30"
+                      : "bg-slate-900/60 backdrop-blur text-slate-400 hover:text-white border border-slate-700/50"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </motion.button>
+              );
+            })}
           </div>
 
           <div className="flex items-center space-x-2">
@@ -431,8 +428,16 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* TAB 1: OVERVIEW & ANALYTICS */}
+        <AnimatePresence mode="wait">
         {activeTab === "ANALYTICS" && (
-          <div className="space-y-6">
+          <motion.div
+            key="analytics"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-6"
+          >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Sales & Orders Overview */}
               <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
@@ -515,12 +520,18 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
-        {/* TAB 2: PRODUCTS & STOCK MANAGEMENT */}
         {activeTab === "PRODUCTS" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl space-y-4">
+          <motion.div
+            key="products"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.25 }}
+            className="bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-xl space-y-4"
+          >
             <div className="p-4 border-b border-slate-800 flex items-center justify-between gap-4">
               <div className="relative max-w-sm w-full">
                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
@@ -610,12 +621,18 @@ export default function AdminDashboardPage() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </motion.div>
         )}
 
-        {/* TAB 3: LIVE ORDERS & FULFILLMENT */}
         {activeTab === "ORDERS" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl space-y-4 p-4 sm:p-6">
+          <motion.div
+            key="orders"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.25 }}
+            className="bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-xl space-y-4 p-4 sm:p-6"
+          >
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
               <h3 className="text-sm font-extrabold text-white flex items-center space-x-2">
                 <Truck className="w-4 h-4 text-cyan-400" />
@@ -741,12 +758,18 @@ export default function AdminDashboardPage() {
                 ))}
               </div>
             )}
-          </div>
+          </motion.div>
         )}
 
-        {/* TAB 4: CUSTOMER DIRECTORY */}
         {activeTab === "CUSTOMERS" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl space-y-4">
+          <motion.div
+            key="customers"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.25 }}
+            className="bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-xl space-y-4"
+          >
             <div className="p-4 border-b border-slate-800 flex items-center justify-between gap-4">
               <div className="relative max-w-sm w-full">
                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
@@ -792,8 +815,9 @@ export default function AdminDashboardPage() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </main>
 
       {/* Add Product Modal */}

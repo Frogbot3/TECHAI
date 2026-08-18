@@ -40,7 +40,17 @@ export function toClientProduct(value: any): Product {
     features: Array.isArray(product.features) ? product.features : [],
     specs: specsToObject(product.specs),
     createdAt: product.createdAt ? dateToString(product.createdAt) : undefined,
-    reviews: Array.isArray(product.reviews) ? product.reviews : [],
+    reviews: Array.isArray(product.reviews)
+      ? product.reviews.map((r: any) => ({
+          id: r.reviewId || r.id || `rev-${Date.now()}`,
+          productId: product.productId || product.id || "",
+          userName: r.userName || "Customer",
+          rating: Number(r.rating || 5),
+          comment: r.comment || "",
+          date: r.date || "",
+          verifiedPurchase: Boolean(r.verifiedPurchase),
+        }))
+      : [],
   };
 }
 
