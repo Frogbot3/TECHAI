@@ -665,7 +665,11 @@ export default function HomePage() {
         wishlistCount={store.wishlist.length}
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAuth={() => {
-          if (!store.user) setIsAuthOpen(true);
+          if (store.user) {
+            window.location.assign("/orders");
+          } else {
+            setIsAuthOpen(true);
+          }
         }}
         onOpenCategories={() => {
           setSelectedCategory("All Categories");

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { Product } from "@/lib/types";
 import { Heart, ShoppingCart, Star, Eye, Check, Package, Truck } from "lucide-react";
 
@@ -64,8 +65,9 @@ export default function ProductCard({
       </button>
 
       {/* Product Image Box */}
-      <div
-        onClick={() => onQuickView(product)}
+      <Link
+        href={`/product/${encodeURIComponent(product.id)}`}
+        aria-label={`View ${product.title}`}
         className="relative aspect-square w-full bg-slate-50 p-3 sm:p-4 flex items-center justify-center overflow-hidden cursor-pointer group-hover:bg-slate-100/60 transition-colors"
       >
         {!imgError && product.image ? (
@@ -82,7 +84,7 @@ export default function ProductCard({
             <span className="text-[10px] font-medium">{product.brand}</span>
           </div>
         )}
-      </div>
+      </Link>
 
       {/* Card Details Body */}
       <div className="p-3 sm:p-3.5 flex flex-col flex-grow justify-between space-y-2">
@@ -93,12 +95,12 @@ export default function ProductCard({
           </div>
 
           {/* Product Title */}
-          <h3
-            onClick={() => onQuickView(product)}
-            className="text-xs sm:text-sm font-semibold text-slate-900 line-clamp-2 hover:text-cyan-700 transition-colors cursor-pointer leading-snug min-h-[34px]"
+          <Link
+            href={`/product/${encodeURIComponent(product.id)}`}
+            className="block text-xs sm:text-sm font-semibold text-slate-900 line-clamp-2 hover:text-cyan-700 transition-colors cursor-pointer leading-snug min-h-[34px]"
           >
             {product.title}
-          </h3>
+          </Link>
 
           {/* Rating */}
           <div className="flex items-center gap-1 text-xs">

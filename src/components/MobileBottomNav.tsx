@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, LayoutGrid, Search, ShoppingCart, User, Package } from "lucide-react";
+import { Home, LayoutGrid, Search, ShoppingCart, User } from "lucide-react";
 
 interface MobileBottomNavProps {
   cartCount: number;
@@ -25,8 +25,7 @@ export default function MobileBottomNav({
   onOpenSearch,
 }: MobileBottomNavProps) {
   const pathname = usePathname();
-  const isOrders = pathname?.startsWith("/orders");
-  const isHome = pathname === "/" && !isOrders;
+  const isHome = pathname === "/";
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 px-3 py-1.5 flex items-center justify-around shadow-lg safe-area-pb">
@@ -78,16 +77,15 @@ export default function MobileBottomNav({
         <span>Cart</span>
       </button>
 
-      {/* 5. Account / Orders */}
-      <Link
-        href="/orders"
-        className={`flex flex-col items-center justify-center py-1 px-2 text-[10px] font-bold transition-colors ${
-          isOrders ? "text-cyan-700 font-extrabold" : "text-slate-500 hover:text-slate-900"
-        }`}
+      {/* 5. Account */}
+      <button
+        type="button"
+        onClick={onOpenAuth || (() => {})}
+        className="flex flex-col items-center justify-center py-1 px-2 text-[10px] font-bold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
       >
-        <Package className="w-5 h-5 mb-0.5" />
-        <span>Orders</span>
-      </Link>
+        <User className="w-5 h-5 mb-0.5" />
+        <span>Account</span>
+      </button>
     </nav>
   );
 }

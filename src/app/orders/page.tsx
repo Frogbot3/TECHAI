@@ -438,6 +438,9 @@ export default function OrdersPage() {
         wishlistCount={store.wishlist.length}
         activeTab="orders"
         onOpenCart={() => setIsCartOpen(true)}
+        onOpenAuth={() => {
+          if (!store.user) setIsAuthOpen(true);
+        }}
       />
     </div>
   );
