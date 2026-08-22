@@ -5,27 +5,60 @@ import { useTechAiStore } from "@/lib/store";
 import Navbar from "@/components/Navbar";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import HeroCarousel from "@/components/HeroCarousel";
+import FlashDealsSection from "@/components/FlashDealsSection";
+import CategoryBubbles from "@/components/CategoryBubbles";
+import ShopByNeedSection from "@/components/ShopByNeedSection";
+import FilterSidebar from "@/components/FilterSidebar";
+import TrustBadgesBar from "@/components/TrustBadgesBar";
 import ProductCard from "@/components/ProductCard";
+import MiniCartToast from "@/components/MiniCartToast";
 import ProductDetailModal from "@/components/ProductDetailModal";
+import ProductComparisonModal from "@/components/ProductComparisonModal";
 import CartDrawer from "@/components/CartDrawer";
 import AuthModal from "@/components/AuthModal";
 import CheckoutModal from "@/components/CheckoutModal";
 import OrderTrackingModal from "@/components/OrderTrackingModal";
 import InvoicePreviewModal from "@/components/InvoicePreviewModal";
 import WriteReviewModal from "@/components/WriteReviewModal";
+import AiShoppingAssistant from "@/components/AiShoppingAssistant";
 import TechAiLogo from "@/components/TechAiLogo";
-import { Product, CartItem, ShippingAddress, Order } from "@/lib/types";
-import { Sparkles, ShieldCheck, Truck, RefreshCw, Filter, SlidersHorizontal, Package, Heart } from "lucide-react";
+import { Product, Order } from "@/lib/types";
+import {
+  Sparkles,
+  SlidersHorizontal,
+  ArrowRight,
+  ChevronRight,
+  Flame,
+  Globe,
+  Instagram,
+  Twitter,
+  Linkedin,
+  Youtube,
+  Search,
+  Filter,
+} from "lucide-react";
 import Link from "next/link";
 
 export default function HomePage() {
   const store = useTechAiStore();
 
+  // Navigation & Search State
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
-  const [sortBy, setSortBy] = useState<"featured" | "price-low" | "price-high" | "rating">("featured");
+  const [sortBy, setSortBy] = useState<"featured" | "price-low" | "price-high" | "rating" | "newest">("featured");
 
+  // Filter States
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedPriceRange, setSelectedPriceRange] = useState<string | null>(null);
+  const [minRating, setMinRating] = useState<number | null>(null);
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [minDiscount, setMinDiscount] = useState<number | null>(null);
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+
+  // Modals & Drawers
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+  const [compareProduct, setCompareProduct] = useState<Product | null>(null);
+  const [lastAddedProduct, setLastAddedProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -35,16 +68,51 @@ export default function HomePage() {
   const [activeInvoiceOrder, setActiveInvoiceOrder] = useState<Order | null>(null);
   const [reviewProduct, setReviewProduct] = useState<any | null>(null);
 
+  // Filter & Sort Logic
   const filteredProducts = useMemo(() => {
     return store.products
       .filter((product) => {
+        // Category Match
         const matchesCategory =
           selectedCategory === "All Categories" || product.category === selectedCategory;
+
+        // Search Match
+        const cleanSearch = searchQuery.trim().toLowerCase();
         const matchesSearch =
-          product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.category.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesCategory && matchesSearch;
+          !cleanSearch ||
+          product.title.toLowerCase().includes(cleanSearch) ||
+          product.brand.toLowerCase().includes(cleanSearch) ||
+          product.category.toLowerCase().includes(cleanSearch);
+
+        // Brand Filter
+        const matchesBrand =
+          selectedBrands.length === 0 || selectedBrands.includes(product.brand);
+
+        // Price Filter
+        let matchesPrice = true;
+        if (selectedPriceRange) {
+          const [min, max] = selectedPriceRange.split("-").map(Number);
+          matchesPrice = product.price >= min && product.price <= max;
+        }
+
+        // Rating Filter
+        const matchesRating = minRating === null || product.rating >= minRating;
+
+        // Stock Filter
+        const matchesStock = !inStockOnly || product.stock > 0;
+
+        // Discount Filter
+        const matchesDiscount = minDiscount === null || product.discountPercent >= minDiscount;
+
+        return (
+          matchesCategory &&
+          matchesSearch &&
+          matchesBrand &&
+          matchesPrice &&
+          matchesRating &&
+          matchesStock &&
+          matchesDiscount
+        );
       })
       .sort((a, b) => {
         if (sortBy === "price-low") return a.price - b.price;
@@ -52,7 +120,33 @@ export default function HomePage() {
         if (sortBy === "rating") return b.rating - a.rating;
         return 0;
       });
-  }, [store.products, selectedCategory, searchQuery, sortBy]);
+  }, [
+    store.products,
+    selectedCategory,
+    searchQuery,
+    selectedBrands,
+    selectedPriceRange,
+    minRating,
+    inStockOnly,
+    minDiscount,
+    sortBy,
+  ]);
+
+  // Section Collections
+  const bestSellers = useMemo(
+    () => store.products.filter((p) => p.isBestSeller || p.rating >= 4.4).slice(0, 5),
+    [store.products]
+  );
+
+  const recommendedProducts = useMemo(
+    () => store.products.filter((p) => p.isTrending || p.price > 1000).slice(0, 5),
+    [store.products]
+  );
+
+  const handleAddToCartWithToast = (product: Product, quantity = 1) => {
+    store.addToCart(product, quantity);
+    setLastAddedProduct(product);
+  };
 
   const handleBuyNow = (product: Product, quantity: number) => {
     store.addToCart(product, quantity);
@@ -73,10 +167,28 @@ export default function HomePage() {
     }
   };
 
+  const handleToggleBrand = (brand: string) => {
+    setSelectedBrands((prev) =>
+      prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]
+    );
+  };
+
+  const handleResetFilters = () => {
+    setSelectedBrands([]);
+    setSelectedPriceRange(null);
+    setMinRating(null);
+    setInStockOnly(false);
+    setMinDiscount(null);
+    setSearchQuery("");
+    setSelectedCategory("All Categories");
+  };
+
   const cartCount = store.cart.reduce((sum, item) => sum + item.quantity, 0);
+  const isHomeShowcase = selectedCategory === "All Categories" && !searchQuery.trim();
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col justify-between selection:bg-cyan-500 selection:text-slate-950 pb-20 md:pb-0">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col justify-between selection:bg-cyan-500 selection:text-slate-950 pb-16 md:pb-0">
+      {/* 1. Header with Live Search & Mega Menu */}
       <Navbar
         cartCount={cartCount}
         wishlistCount={store.wishlist.length}
@@ -85,139 +197,397 @@ export default function HomePage() {
         setSearchQuery={setSearchQuery}
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
+        products={store.products}
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenTracking={() => {
           setTrackingOrderId("");
           setIsTrackingOpen(true);
         }}
+        onSelectProduct={(p) => setQuickViewProduct(p)}
         onLogout={store.logoutUser}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto pb-16">
-        {selectedCategory === "All Categories" && !searchQuery && (
-          <HeroCarousel onExploreCategory={(cat) => setSelectedCategory(cat)} />
-        )}
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto pb-12">
+        {isHomeShowcase ? (
+          /* HOMEPAGE SHOWCASE */
+          <div className="space-y-4">
+            {/* 2. Main Hero Section */}
+            <HeroCarousel onExploreCategory={(cat) => setSelectedCategory(cat)} />
 
-        <div className="px-4 sm:px-6 lg:px-8 pt-8 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-950 flex items-center space-x-2">
-              <span>{selectedCategory}</span>
-              <span className="text-xs font-bold text-slate-500 bg-slate-200 px-2.5 py-0.5 rounded-full">
-                {filteredProducts.length} items
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Explore authentic AI gadgets, luxury watches, cleats, and stress toys at TECH AI.
-            </p>
+            {/* 3. Flash Deals Section with Clean Countdown */}
+            <FlashDealsSection
+              products={store.products}
+              wishlist={store.wishlist}
+              onAddToCart={handleAddToCartWithToast}
+              onQuickView={(p) => setQuickViewProduct(p)}
+              onToggleWishlist={store.toggleWishlist}
+              onViewAll={() => setSelectedCategory("Electronics")}
+            />
+
+            {/* 4. Popular Categories */}
+            <CategoryBubbles
+              selectedCategory={selectedCategory}
+              onSelectCategory={(cat) => setSelectedCategory(cat)}
+            />
+
+            {/* 5. Shop By Need Discovery Grid */}
+            <ShopByNeedSection
+              onSelectNeed={(category, query) => {
+                setSelectedCategory(category);
+                if (query) setSearchQuery(query);
+              }}
+            />
+
+            {/* 6. Best Sellers */}
+            <section className="px-3 sm:px-6 lg:px-8 py-4">
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                    Best Sellers
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Top-selling verified customer favorites
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("Mobiles & Wearables")}
+                  className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-1"
+                >
+                  <span>View All</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 items-stretch">
+                {bestSellers.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    isInWishlist={store.wishlist.includes(product.id)}
+                    onAddToCart={handleAddToCartWithToast}
+                    onQuickView={(p) => setQuickViewProduct(p)}
+                    onToggleWishlist={store.toggleWishlist}
+                  />
+                ))}
+              </div>
+            </section>
+
+            {/* 7. Recommended Products */}
+            <section className="px-3 sm:px-6 lg:px-8 py-4">
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                    Recommended For You
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Curated electronics, lifestyle essentials & gadgets
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("All Categories")}
+                  className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-1"
+                >
+                  <span>Explore Catalog</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 items-stretch">
+                {recommendedProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    isInWishlist={store.wishlist.includes(product.id)}
+                    onAddToCart={handleAddToCartWithToast}
+                    onQuickView={(p) => setQuickViewProduct(p)}
+                    onToggleWishlist={store.toggleWishlist}
+                  />
+                ))}
+              </div>
+            </section>
+
+            {/* 8. Trust Features */}
+            <TrustBadgesBar />
           </div>
+        ) : (
+          /* PRODUCT LISTING & FILTER VIEW (When Searching or Filtering) */
+          <div className="px-3 sm:px-6 lg:px-8 pt-5">
+            {/* Top Results Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+              <div>
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <span>{searchQuery ? `Search Results for "${searchQuery}"` : selectedCategory}</span>
+                  <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                    {filteredProducts.length} items
+                  </span>
+                </h1>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Showing in-stock items with fast delivery
+                </p>
+              </div>
 
-          <div className="flex items-center space-x-2 bg-white px-3.5 py-2 rounded-2xl border border-slate-200 shadow-sm text-xs font-bold">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-slate-500">Sort by:</span>
-            <select
-              value={sortBy}
-              onChange={(e: any) => setSortBy(e.target.value)}
-              className="bg-transparent focus:outline-none text-slate-900 font-extrabold cursor-pointer"
-            >
-              <option value="featured">Featured</option>
-              <option value="price-low">Price: Low to High</option>
-              <option value="price-high">Price: High to Low</option>
-              <option value="rating">Highest Rated</option>
-            </select>
-          </div>
-        </div>
+              <div className="flex items-center space-x-2 self-start sm:self-auto">
+                {/* Mobile Filter Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsMobileFilterOpen((prev) => !prev)}
+                  className="md:hidden flex items-center space-x-1.5 px-3 py-2 bg-slate-100 rounded-lg text-xs font-bold text-slate-800"
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>Filter</span>
+                </button>
 
-        <div className="px-4 sm:px-6 lg:px-8">
-          {filteredProducts.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
-              <Sparkles className="w-10 h-10 text-slate-300 mx-auto" />
-              <h3 className="text-base font-bold text-slate-800">No products found</h3>
-              <p className="text-xs text-slate-500">Try searching for a different keyword or category.</p>
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setSelectedCategory("All Categories");
-                }}
-                className="px-5 py-2.5 bg-slate-900 text-white rounded-full text-xs font-bold"
-              >
-                Reset Filters
-              </button>
+                {/* Sort Dropdown */}
+                <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-slate-500">Sort:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e: any) => setSortBy(e.target.value)}
+                    className="bg-transparent focus:outline-none text-slate-900 font-bold cursor-pointer"
+                  >
+                    <option value="featured">Featured</option>
+                    <option value="price-low">Price: Low to High</option>
+                    <option value="price-high">Price: High to Low</option>
+                    <option value="rating">Customer Rating</option>
+                  </select>
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6 items-stretch">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  isInWishlist={store.wishlist.includes(product.id)}
-                  onAddToCart={store.addToCart}
-                  onQuickView={(p) => setQuickViewProduct(p)}
-                  onToggleWishlist={store.toggleWishlist}
+
+            {/* Main Listing Layout (Sidebar Filter + Product Grid) */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              {/* Desktop Filter Sidebar (3 cols) */}
+              <div className="hidden md:block md:col-span-3">
+                <FilterSidebar
+                  products={store.products}
+                  selectedBrands={selectedBrands}
+                  selectedPriceRange={selectedPriceRange}
+                  minRating={minRating}
+                  inStockOnly={inStockOnly}
+                  minDiscount={minDiscount}
+                  onToggleBrand={handleToggleBrand}
+                  onSelectPriceRange={setSelectedPriceRange}
+                  onSelectMinRating={setMinRating}
+                  onToggleInStock={() => setInStockOnly((prev) => !prev)}
+                  onSelectMinDiscount={setMinDiscount}
+                  onResetFilters={handleResetFilters}
                 />
-              ))}
+              </div>
+
+              {/* Mobile Slide-down Filter */}
+              {isMobileFilterOpen && (
+                <div className="md:hidden col-span-1 mb-4">
+                  <FilterSidebar
+                    products={store.products}
+                    selectedBrands={selectedBrands}
+                    selectedPriceRange={selectedPriceRange}
+                    minRating={minRating}
+                    inStockOnly={inStockOnly}
+                    minDiscount={minDiscount}
+                    onToggleBrand={handleToggleBrand}
+                    onSelectPriceRange={setSelectedPriceRange}
+                    onSelectMinRating={setMinRating}
+                    onToggleInStock={() => setInStockOnly((prev) => !prev)}
+                    onSelectMinDiscount={setMinDiscount}
+                    onResetFilters={handleResetFilters}
+                  />
+                </div>
+              )}
+
+              {/* Product Cards Grid (9 cols) */}
+              <div className="md:col-span-9">
+                {filteredProducts.length === 0 ? (
+                  <div className="bg-white rounded-xl border border-slate-200 p-12 text-center space-y-3">
+                    <Sparkles className="w-8 h-8 text-slate-300 mx-auto" />
+                    <h3 className="text-sm font-bold text-slate-800">No products match your filters</h3>
+                    <p className="text-xs text-slate-500">
+                      Try removing some filters or search for another item.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors"
+                    >
+                      Clear All Filters
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
+                    {filteredProducts.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        isInWishlist={store.wishlist.includes(product.id)}
+                        onAddToCart={handleAddToCartWithToast}
+                        onQuickView={(p) => setQuickViewProduct(p)}
+                        onToggleWishlist={store.toggleWishlist}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </main>
 
-      <footer className="bg-slate-950 text-slate-400 border-t border-slate-900 pt-12 pb-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-12 text-xs">
-          <div className="space-y-4">
+      {/* 9. Professional Marketplace Footer */}
+      <footer className="bg-slate-950 text-slate-400 border-t border-slate-900 pt-12 pb-8 px-4 sm:px-6 lg:px-8 text-xs">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 mb-10">
+          {/* Col 1: Brand Info */}
+          <div className="lg:col-span-2 space-y-3">
             <TechAiLogo size="md" />
-            <p className="text-slate-400 leading-relaxed">
-              TECH AI is your trusted destination for cutting-edge spatial electronics, lifestyle innovations, luxury sports gear, and anti-stress companions.
+            <p className="text-slate-400 leading-relaxed max-w-sm">
+              TECH AI is an online shopping destination for genuine electronics, smart wearables, gaming gear, home appliances, and daily essentials.
+            </p>
+            <p className="text-[11px] text-slate-500 font-medium">
+              Demo Marketplace Platform • Built with Next.js & React
             </p>
           </div>
 
+          {/* Col 2: Customer Care */}
           <div>
-            <h4 className="font-extrabold text-white uppercase tracking-wider mb-3">Shop Categories</h4>
-            <ul className="space-y-2">
-              <li><button onClick={() => setSelectedCategory("AI Electronics")} className="hover:text-white">AI Electronics</button></li>
-              <li><button onClick={() => setSelectedCategory("Toys & Stress Relief")} className="hover:text-white">Toys & Stress Relief</button></li>
-              <li><button onClick={() => setSelectedCategory("Fashion")} className="hover:text-white">Fashion & Wearables</button></li>
-              <li><button onClick={() => setSelectedCategory("Mobiles & Wearables")} className="hover:text-white">Mobiles & Wearables</button></li>
+            <h4 className="font-bold text-white uppercase tracking-wider mb-3 text-[11px]">
+              Customer Service
+            </h4>
+            <ul className="space-y-2 text-slate-400">
+              <li>
+                <Link href="/orders" className="hover:text-white transition-colors">
+                  My Orders & Invoices
+                </Link>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setIsTrackingOpen(true)}
+                  className="hover:text-white transition-colors text-left"
+                >
+                  Live Order Tracking
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setIsAuthOpen(true)}
+                  className="hover:text-white transition-colors text-left"
+                >
+                  Account Login
+                </button>
+              </li>
+              <li>
+                <Link href="/admin/login" className="hover:text-amber-400 transition-colors">
+                  Admin Portal
+                </Link>
+              </li>
             </ul>
           </div>
 
+          {/* Col 3: Categories */}
           <div>
-            <h4 className="font-extrabold text-white uppercase tracking-wider mb-3">Customer Care</h4>
-            <ul className="space-y-2">
-              <li><Link href="/orders" className="hover:text-cyan-400 font-bold text-slate-300">My Orders & Invoices</Link></li>
-              <li><button onClick={() => setIsTrackingOpen(true)} className="hover:text-white">Live Order Tracking</button></li>
-              <li><button onClick={() => setIsAuthOpen(true)} className="hover:text-white">Account Login & OTP</button></li>
-              <li><Link href="/admin/login" className="hover:text-amber-400 text-slate-300 font-bold">Admin Control Portal</Link></li>
+            <h4 className="font-bold text-white uppercase tracking-wider mb-3 text-[11px]">
+              Shop Categories
+            </h4>
+            <ul className="space-y-2 text-slate-400">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("Electronics")}
+                  className="hover:text-white transition-colors"
+                >
+                  Electronics & Audio
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("Mobiles & Wearables")}
+                  className="hover:text-white transition-colors"
+                >
+                  Mobiles & Smartwatches
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("Home Appliances")}
+                  className="hover:text-white transition-colors"
+                >
+                  Home & Kitchen
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("Computers & Gaming")}
+                  className="hover:text-white transition-colors"
+                >
+                  Computers & Gaming
+                </button>
+              </li>
             </ul>
           </div>
 
+          {/* Col 4: Payments & Security */}
           <div>
-            <h4 className="font-extrabold text-white uppercase tracking-wider mb-3">Guaranteed Security</h4>
-            <p className="text-slate-400 mb-3">256-bit SSL encrypted checkout powered by TECH AI Gateway.</p>
-            <div className="flex items-center space-x-2 text-white font-bold bg-slate-900 p-2.5 rounded-xl border border-slate-800">
-              <ShieldCheck className="w-5 h-5 text-emerald-400" />
-              <span>100% Genuine & Verified Store</span>
-            </div>
+            <h4 className="font-bold text-white uppercase tracking-wider mb-3 text-[11px]">
+              Payment & Security
+            </h4>
+            <p className="text-[11px] text-slate-400 leading-relaxed mb-3">
+              We support UPI, Cards, NetBanking, and Cash on Delivery. All transactions are securely processed.
+            </p>
+            <span className="inline-block px-2.5 py-1 bg-slate-900 border border-slate-800 text-emerald-400 font-semibold rounded text-[11px]">
+              ✓ 256-Bit SSL Encrypted
+            </span>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto border-t border-slate-900 pt-6 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-2">
-          <p>© {new Date().getFullYear()} TECH AI Inc. All rights reserved.</p>
+        {/* Bottom Legal Row */}
+        <div className="max-w-7xl mx-auto border-t border-slate-900 pt-6 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-3">
+          <p>© {new Date().getFullYear()} TECH AI E-Commerce. All rights reserved.</p>
           <div className="flex items-center space-x-4">
-            <span>Privacy Policy</span>
-            <span>Terms of Service</span>
-            <span>Support</span>
+            <span className="hover:text-slate-400 cursor-pointer">Privacy Policy</span>
+            <span className="hover:text-slate-400 cursor-pointer">Terms of Service</span>
+            <span className="hover:text-slate-400 cursor-pointer">Return Policy</span>
+            <span className="hover:text-slate-400 cursor-pointer">Contact Support</span>
           </div>
         </div>
       </footer>
 
-      {/* Product Quick View & Reviews Modal */}
+      {/* Mini-Cart Non-Blocking Feedback Toast */}
+      <MiniCartToast
+        product={lastAddedProduct}
+        onClose={() => setLastAddedProduct(null)}
+        onViewCart={() => setIsCartOpen(true)}
+        onCheckout={() => setIsCheckoutOpen(true)}
+      />
+
+      {/* Product Detail Modal */}
       <ProductDetailModal
         product={quickViewProduct}
         user={store.user}
+        allProducts={store.products}
         onClose={() => setQuickViewProduct(null)}
-        onAddToCart={store.addToCart}
+        onAddToCart={handleAddToCartWithToast}
         onBuyNow={handleBuyNow}
         onReviewSubmitted={store.addReviewToProduct}
+        onOpenCompare={(p) => {
+          setCompareProduct(p);
+          setQuickViewProduct(null);
+        }}
+      />
+
+      {/* Product Comparison Modal */}
+      <ProductComparisonModal
+        isOpen={!!compareProduct}
+        baseProduct={compareProduct}
+        comparisonProducts={store.products}
+        onClose={() => setCompareProduct(null)}
+        onAddToCart={handleAddToCartWithToast}
       />
 
       {/* Cart Drawer */}
@@ -240,7 +610,7 @@ export default function HomePage() {
         }}
       />
 
-      {/* Overhauled Checkout Modal */}
+      {/* Checkout Modal */}
       <CheckoutModal
         isOpen={isCheckoutOpen}
         cart={store.cart}
@@ -254,7 +624,7 @@ export default function HomePage() {
         }}
       />
 
-      {/* Animated Order Tracking Modal */}
+      {/* Order Tracking Modal */}
       <OrderTrackingModal
         isOpen={isTrackingOpen}
         orders={store.orders}
@@ -282,13 +652,28 @@ export default function HomePage() {
         }}
       />
 
-      {/* Mobile Bottom Navigation Bar */}
+      {/* Floating AI Shopping Assistant */}
+      <AiShoppingAssistant
+        products={store.products}
+        onSelectProduct={(p) => setQuickViewProduct(p)}
+        onAddToCart={handleAddToCartWithToast}
+      />
+
+      {/* Mobile Bottom Navigation Bar (5 tabs) */}
       <MobileBottomNav
         cartCount={cartCount}
         wishlistCount={store.wishlist.length}
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAuth={() => {
           if (!store.user) setIsAuthOpen(true);
+        }}
+        onOpenCategories={() => {
+          setSelectedCategory("All Categories");
+          const el = document.getElementById("categories-section");
+          if (el) el.scrollIntoView({ behavior: "smooth" });
+        }}
+        onOpenSearch={() => {
+          window.scrollTo({ top: 0, behavior: "smooth" });
         }}
       />
     </div>
