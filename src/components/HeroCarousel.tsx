@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Sparkles, Flame, ShieldCheck } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface HeroCarouselProps {
   onExploreCategory: (category: string) => void;
@@ -12,176 +12,219 @@ const HERO_SLIDES = [
   {
     id: 1,
     badge: "AUDIO FEST",
-    title: "Premium Sound. Better Price.",
-    subtitle: "Wireless earbuds, noise-cancelling headphones, and soundbars from top brands.",
-    priceTag: "Starting from ₹999",
+    title: "Upgrade Your Everyday Sound",
+    subtitle: "Premium earbuds, noise-cancelling headphones, and soundbars from trusted brands.",
+    priceLabel: "Starting at",
+    price: "₹999",
+    offer: "Up to 50% off",
     category: "Electronics",
-    cta: "Shop Audio",
-    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80",
+    cta: "Explore Audio",
+    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1000&auto=format&fit=crop&q=85",
   },
   {
     id: 2,
     badge: "NEXT-GEN TECH",
-    title: "Flagship Mobiles & Smartwatches",
-    subtitle: "Crisp AMOLED displays, multi-day battery life, and Bluetooth calling.",
-    priceTag: "Starts at ₹1,799",
+    title: "Smart Tech That Keeps Up",
+    subtitle: "Bright displays, multi-day battery life, and connected essentials for every day.",
+    priceLabel: "From",
+    price: "₹1,799",
+    offer: "Bluetooth calling included",
     category: "Mobiles & Wearables",
     cta: "Explore Tech",
-    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1000&auto=format&fit=crop&q=85",
   },
   {
     id: 3,
     badge: "HOME ESSENTIALS",
-    title: "Modern Appliances For Everyday Living",
-    subtitle: "Heavy soleplate steam irons, stainless steel kettles, and kitchen tools.",
-    priceTag: "Up to 50% Off",
+    title: "Thoughtful Upgrades For Every Room",
+    subtitle: "Reliable irons, kettles, and practical home tools made for the everyday routine.",
+    priceLabel: "Offers up to",
+    price: "50% OFF",
+    offer: "Fast delivery across India",
     category: "Home Appliances",
     cta: "Shop Appliances",
-    image: "https://images.unsplash.com/photo-1608354580875-30bd4168b351?w=800&auto=format&fit=crop&q=80",
+    image: "https://images.unsplash.com/photo-1608354580875-30bd4168b351?w=1000&auto=format&fit=crop&q=85",
   },
 ];
 
+const HERO_EASE = [0.16, 1, 0.3, 1] as const;
+
 export default function HeroCarousel({ onExploreCategory }: HeroCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+    if (isPaused) return;
+    const timer = window.setInterval(() => {
+      setCurrentSlide((current) => (current + 1) % HERO_SLIDES.length);
     }, 6000);
-    return () => clearInterval(timer);
-  }, []);
+    return () => window.clearInterval(timer);
+  }, [isPaused]);
+
+  const changeSlide = (direction: "next" | "previous") => {
+    setCurrentSlide((current) => {
+      if (direction === "next") return (current + 1) % HERO_SLIDES.length;
+      return (current - 1 + HERO_SLIDES.length) % HERO_SLIDES.length;
+    });
+  };
 
   const slide = HERO_SLIDES[currentSlide];
 
   return (
-    <section className="px-3 sm:px-6 lg:px-8 pt-4 pb-2">
-      {/* 2-Column Grid: 8 cols (Primary Hero) + 4 cols (Secondary Promo Tiles) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Primary Hero Banner */}
-        <div className="lg:col-span-8 relative rounded-2xl overflow-hidden bg-slate-900 text-white min-h-[320px] sm:min-h-[380px] flex flex-col justify-between p-6 sm:p-10 shadow-md">
-          <AnimatePresence mode="wait">
+    <section className="px-3 pb-2 pt-4 sm:px-6 lg:px-8" aria-label="Featured offers">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <div
+          className="relative min-h-[430px] overflow-hidden rounded-2xl bg-slate-950 px-6 py-7 text-white shadow-lg sm:min-h-[390px] sm:px-9 sm:py-9 lg:col-span-8 lg:px-10"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+          onFocusCapture={() => setIsPaused(true)}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node)) setIsPaused(false);
+          }}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_24%,rgba(14,165,233,0.2),transparent_29%),radial-gradient(circle_at_72%_92%,rgba(8,145,178,0.14),transparent_31%)]" />
+
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={slide.id}
-              initial={{ opacity: 0, x: 12 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -12 }}
-              transition={{ duration: 0.3 }}
-              className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-center flex-1"
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
+              transition={{ duration: reduceMotion ? 0.15 : 0.55, ease: HERO_EASE }}
+              className="relative grid min-h-[372px] items-center gap-5 sm:min-h-[318px] sm:grid-cols-12 sm:gap-6"
             >
-              {/* Text Side */}
-              <div className="sm:col-span-7 space-y-3 z-10">
-                <span className="inline-block px-2.5 py-1 bg-cyan-950 text-cyan-300 border border-cyan-800 rounded-md text-[11px] font-bold uppercase tracking-wider">
+              <div className="relative z-10 order-1 space-y-4 sm:col-span-7 sm:space-y-4">
+                <motion.span
+                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: reduceMotion ? 0 : 0.02, duration: 0.42, ease: HERO_EASE }}
+                  className="inline-flex rounded-md border border-cyan-400/40 bg-cyan-500/10 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-cyan-200"
+                >
                   {slide.badge}
-                </span>
+                </motion.span>
 
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight tracking-tight">
+                <motion.h1
+                  initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: reduceMotion ? 0 : 0.1, duration: 0.52, ease: HERO_EASE }}
+                  className="max-w-xl text-[32px] font-black leading-[1.08] tracking-[-0.045em] text-white sm:text-[40px] lg:text-[52px]"
+                >
                   {slide.title}
-                </h1>
+                </motion.h1>
 
-                <p className="text-xs sm:text-sm text-slate-300 font-normal leading-relaxed">
+                <motion.p
+                  initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: reduceMotion ? 0 : 0.18, duration: 0.48, ease: HERO_EASE }}
+                  className="max-w-md text-sm leading-6 text-slate-300 sm:text-[15px]"
+                >
                   {slide.subtitle}
-                </p>
+                </motion.p>
 
-                <div className="text-lg sm:text-xl font-bold text-amber-400">
-                  {slide.priceTag}
-                </div>
+                <motion.div
+                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: reduceMotion ? 0 : 0.25, duration: 0.45, ease: HERO_EASE }}
+                  className="pt-1"
+                >
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{slide.priceLabel}</p>
+                  <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <span className="text-3xl font-black tracking-tight text-amber-300 sm:text-[38px]">{slide.price}</span>
+                    <span className="text-[11px] font-bold text-cyan-200">{slide.offer}</span>
+                  </div>
+                </motion.div>
 
-                <div className="pt-2">
+                <motion.div
+                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: reduceMotion ? 0 : 0.32, duration: 0.45, ease: HERO_EASE }}
+                  className="pt-1"
+                >
                   <button
                     type="button"
                     onClick={() => onExploreCategory(slide.category)}
-                    className="px-6 py-2.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs sm:text-sm transition-colors flex items-center gap-2 shadow-sm cursor-pointer"
+                    className="group inline-flex min-h-11 items-center gap-2 rounded-lg bg-white px-5 text-xs font-extrabold text-slate-950 shadow-lg shadow-slate-950/20 transition duration-200 hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-xl active:scale-[0.98] sm:text-sm"
                   >
                     <span>{slide.cta}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
                   </button>
-                </div>
+                </motion.div>
               </div>
 
-              {/* Product Visual */}
-              <div className="sm:col-span-5 flex items-center justify-center">
-                <div className="w-44 h-44 sm:w-56 sm:h-56 relative flex items-center justify-center">
-                  <img
-                    src={slide.image}
-                    alt={slide.title}
-                    className="max-h-full max-w-full object-contain rounded-xl drop-shadow-xl"
-                  />
-                </div>
-              </div>
+              <motion.div
+                initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+                animate={reduceMotion ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, y: [0, -8, 0] }}
+                transition={
+                  reduceMotion
+                    ? { duration: 0.2 }
+                    : {
+                        opacity: { delay: 0.15, duration: 0.55, ease: HERO_EASE },
+                        scale: { delay: 0.15, duration: 0.55, ease: HERO_EASE },
+                        y: { delay: 0.75, duration: 4.6, ease: "easeInOut", repeat: Infinity },
+                      }
+                }
+                className="relative order-2 mx-auto flex h-40 w-full max-w-[260px] items-center justify-center sm:col-span-5 sm:h-64 sm:max-w-none lg:h-72"
+              >
+                <div className="absolute inset-x-4 bottom-2 h-8 rounded-full bg-cyan-500/20 blur-2xl" />
+                <img src={slide.image} alt="" className="relative h-full w-full rounded-xl object-contain object-center drop-shadow-2xl sm:scale-110 lg:scale-125" />
+              </motion.div>
             </motion.div>
           </AnimatePresence>
 
-          {/* Dots Indicator */}
-          <div className="flex items-center space-x-2 pt-4 z-20">
-            {HERO_SLIDES.map((s, index) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setCurrentSlide(index)}
-                className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                  index === currentSlide ? "w-6 bg-cyan-400" : "w-2 bg-slate-700 hover:bg-slate-500"
-                }`}
-                aria-label={`Slide ${index + 1}`}
-              />
-            ))}
+          <div className="relative z-20 mt-1 flex items-center justify-between gap-3 sm:mt-3">
+            <div className="flex items-center gap-2" role="tablist" aria-label="Featured offers">
+              {HERO_SLIDES.map((item, index) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={index === currentSlide}
+                  aria-label={`Show offer ${index + 1}: ${item.title}`}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`h-1.5 rounded-full transition-all ${index === currentSlide ? "w-7 bg-cyan-300" : "w-2 bg-slate-600 hover:bg-slate-400"}`}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={() => changeSlide("previous")} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white" aria-label="Previous offer">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button type="button" onClick={() => changeSlide("next")} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white" aria-label="Next offer">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Secondary Promo Cards (2 Cards Stacked) */}
-        <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-4">
-          {/* Card 1: Smart Watches */}
-          <div
+        <div className="flex flex-col gap-4 sm:flex-row lg:col-span-4 lg:flex-col">
+          <button
+            type="button"
             onClick={() => onExploreCategory("Mobiles & Wearables")}
-            className="flex-1 rounded-2xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 p-5 flex items-center justify-between cursor-pointer transition-colors group"
+            className="group flex min-h-[156px] flex-1 items-center justify-between overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 p-4 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:shadow-md"
           >
-            <div className="space-y-1 max-w-[160px]">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded">
-                Smart Tech
-              </span>
-              <h3 className="text-base font-bold text-slate-900 leading-snug">
-                Smart Watches
-              </h3>
-              <p className="text-xs font-semibold text-rose-600">Up to 40% Off</p>
-              <span className="text-xs font-bold text-slate-700 group-hover:text-cyan-700 flex items-center gap-1 pt-1">
-                <span>View Deals</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </span>
-            </div>
-            <div className="w-24 h-24 flex-shrink-0 flex items-center justify-center">
-              <img
-                src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&auto=format&fit=crop&q=80"
-                alt="Smart watch"
-                className="max-h-full max-w-full object-contain rounded-lg group-hover:scale-105 transition-transform"
-              />
-            </div>
-          </div>
+            <span className="relative z-10 max-w-[145px] space-y-1.5">
+              <span className="block text-[10px] font-extrabold uppercase tracking-[0.12em] text-cyan-700">Smart tech</span>
+              <span className="block text-[15px] font-black leading-snug text-slate-900">Smart Watches</span>
+              <span className="block text-xs font-bold text-rose-600">Up to 40% off</span>
+              <span className="inline-flex items-center gap-1 pt-1 text-[11px] font-bold text-slate-700 transition-colors group-hover:text-cyan-700">View deals <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" /></span>
+            </span>
+            <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80" alt="Smart watch" className="h-24 w-24 rounded-lg object-cover shadow-sm transition-transform duration-200 group-hover:scale-[1.03]" />
+          </button>
 
-          {/* Card 2: Gaming & Accessories */}
-          <div
+          <button
+            type="button"
             onClick={() => onExploreCategory("Computers & Gaming")}
-            className="flex-1 rounded-2xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 p-5 flex items-center justify-between cursor-pointer transition-colors group"
+            className="group flex min-h-[156px] flex-1 items-center justify-between overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 p-4 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:shadow-md"
           >
-            <div className="space-y-1 max-w-[160px]">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-white px-2 py-0.5 rounded">
-                Gaming Gear
-              </span>
-              <h3 className="text-base font-bold text-slate-900 leading-snug">
-                Keyboards & Audio
-              </h3>
-              <p className="text-xs font-semibold text-emerald-600">Starting from ₹499</p>
-              <span className="text-xs font-bold text-slate-700 group-hover:text-cyan-700 flex items-center gap-1 pt-1">
-                <span>Shop Gaming</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </span>
-            </div>
-            <div className="w-24 h-24 flex-shrink-0 flex items-center justify-center">
-              <img
-                src="https://images.unsplash.com/photo-1587829741301-dc798b83add?w=300&auto=format&fit=crop&q=80"
-                alt="Gaming keyboard"
-                className="max-h-full max-w-full object-contain rounded-lg group-hover:scale-105 transition-transform"
-              />
-            </div>
-          </div>
+            <span className="relative z-10 max-w-[145px] space-y-1.5">
+              <span className="block text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-600">Gaming gear</span>
+              <span className="block text-[15px] font-black leading-snug text-slate-900">Keyboards & Audio</span>
+              <span className="block text-xs font-bold text-emerald-700">Starting from ₹499</span>
+              <span className="inline-flex items-center gap-1 pt-1 text-[11px] font-bold text-slate-700 transition-colors group-hover:text-cyan-700">Shop gaming <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" /></span>
+            </span>
+            <img src="https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&auto=format&fit=crop&q=80" alt="Laptop for gaming and productivity" className="h-24 w-24 rounded-lg object-cover shadow-sm transition-transform duration-200 group-hover:scale-[1.03]" />
+          </button>
         </div>
       </div>
     </section>
