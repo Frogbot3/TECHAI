@@ -1,79 +1,117 @@
 import * as XLSX from "xlsx";
 import { Order } from "./types";
 
-export function exportSingleOrderToExcel(order: Order): void {
-  const workbook = XLSX.utils.book_new();
+const ORDER_COL_WIDTHS = [
+  { wch: 22 }, // Order ID
+  { wch: 22 }, // Order Date
+  { wch: 20 }, // Customer Name
+  { wch: 15 }, // Phone
+  { wch: 26 }, // Email
+  { wch: 32 }, // Delivery Address
+  { wch: 16 }, // City
+  { wch: 16 }, // State
+  { wch: 10 }, // Pincode
+  { wch: 36 }, // Product Title
+  { wch: 16 }, // Brand
+  { wch: 18 }, // Category
+  { wch: 10 }, // Quantity
+  { wch: 16 }, // Unit Price
+  { wch: 14 }, // GST
+  { wch: 18 }, // Item Net Total
+  { wch: 18 }, // Order Subtotal
+  { wch: 14 }, // Discount
+  { wch: 14 }, // Shipping
+  { wch: 22 }, // Order Grand Total
+  { wch: 16 }, // Payment Method
+  { wch: 14 }, // Payment Status
+  { wch: 16 }, // Order Status
+  { wch: 22 }, // Logistics Partner
+  { wch: 18 }, // Tracking AWB
+  { wch: 26 }, // Transaction Ref
+];
 
-  // Sheet 1: Order Overview & Customer / Payment Details
-  const summaryData = [
-    ["TECH AI E-COMMERCE - ORDER MANIFEST & TAX INVOICE DATA"],
-    [],
-    ["ORDER METADATA", ""],
-    ["Order ID", order.id],
-    ["Created At", order.createdAt],
-    ["Order Status", order.status],
-    ["Tracking Number", order.trackingNumber || "N/A"],
-    ["Courier Partner", order.courierName || "Tech AI Logistics"],
-    ["Estimated Delivery", order.estimatedDelivery || "3-5 Business Days"],
-    [],
-    ["CUSTOMER DETAILS", ""],
-    ["Customer Name", order.shippingAddress.fullName || "Customer"],
-    ["Contact Phone", order.shippingAddress.phone || "N/A"],
-    ["Email Address", order.shippingAddress.email || "N/A"],
-    ["Street Address", order.shippingAddress.street || "N/A"],
-    ["City", order.shippingAddress.city || "N/A"],
-    ["State", order.shippingAddress.state || "N/A"],
-    ["Pincode", order.shippingAddress.pincode || "N/A"],
-    ["Landmark", order.shippingAddress.landmark || "N/A"],
-    [],
-    ["PAYMENT & FINANCIAL DETAILS", ""],
-    ["Payment Mode", order.paymentMethod],
-    ["Payment Status", order.paymentStatus],
-    ["Transaction ID / Ref", order.paymentDetails?.transactionId || order.paymentDetails?.upiId || "N/A"],
-    ["Payment Provider", order.paymentDetails?.provider || order.paymentMethod],
-    ["Subtotal (₹)", order.totalAmount],
-    ["Promotional Discount (₹)", order.discountAmount],
-    ["Shipping Fee (₹)", order.shippingFee === 0 ? "FREE" : order.shippingFee],
-    ["Grand Total Amount (₹)", order.finalAmount],
-  ];
+const ORDER_HEADERS = [
+  "Order ID",
+  "Order Date",
+  "Customer Name",
+  "Phone",
+  "Email",
+  "Delivery Address",
+  "City",
+  "State",
+  "Pincode",
+  "Product Title",
+  "Brand",
+  "Category",
+  "Quantity",
+  "Unit Price (INR)",
+  "GST 18% (INR)",
+  "Item Net Total (INR)",
+  "Order Subtotal (INR)",
+  "Discount (INR)",
+  "Shipping (INR)",
+  "Order Grand Total (INR)",
+  "Payment Method",
+  "Payment Status",
+  "Order Status",
+  "Logistics Partner",
+  "Tracking AWB",
+  "Transaction / UPI Ref",
+];
 
-  const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-  XLSX.utils.book_append_sheet(workbook, summarySheet, "Order Overview");
-
-  // Sheet 2: Itemized Products Breakdown
-  const itemsHeaders = [
-    "Item #",
-    "Product ID",
-    "Product Title",
-    "Brand",
-    "Category",
-    "Quantity",
-    "Unit Price (₹)",
-    "GST 18% (₹)",
-    "Total Item Price (₹)"
-  ];
-
-  const itemsRows = order.items.map((item, idx) => {
+function transformOrderToRows(order: Order) {
+  return order.items.map((item) => {
     const itemTotal = item.product.price * item.quantity;
-    const basePrice = Math.round(item.product.price / 1.18);
-    const gstAmount = item.product.price - basePrice;
+    const baseUnitPrice = Math.round((item.product.price / 1.18) * 100) / 100;
+    const gstAmount = Math.round((itemTotal - itemTotal / 1.18) * 100) / 100;
 
     return [
-      idx + 1,
-      item.product.id,
+      order.id,
+      order.createdAt,
+      order.shippingAddress.fullName || "Customer",
+      order.shippingAddress.phone || "N/A",
+      order.shippingAddress.email || "N/A",
+      order.shippingAddress.street || "N/A",
+      order.shippingAddress.city || "N/A",
+      order.shippingAddress.state || "N/A",
+      order.shippingAddress.pincode || "N/A",
       item.product.title,
       item.product.brand || "TECH AI",
       item.product.category || "General",
       item.quantity,
-      item.product.price,
-      gstAmount * item.quantity,
+      baseUnitPrice,
+      gstAmount,
       itemTotal,
+      order.totalAmount,
+      order.discountAmount,
+      order.shippingFee,
+      order.finalAmount,
+      order.paymentMethod,
+      order.paymentStatus,
+      order.status,
+      order.courierName || "Tech AI Express",
+      order.trackingNumber || "N/A",
+      order.paymentDetails?.transactionId || order.paymentDetails?.upiId || "N/A",
     ];
   });
+}
 
-  const itemsSheet = XLSX.utils.aoa_to_sheet([itemsHeaders, ...itemsRows]);
-  XLSX.utils.book_append_sheet(workbook, itemsSheet, "Ordered Items");
+export function exportSingleOrderToExcel(order: Order): void {
+  const workbook = XLSX.utils.book_new();
+  const rows = transformOrderToRows(order);
+  const worksheet = XLSX.utils.aoa_to_sheet([ORDER_HEADERS, ...rows]);
+  worksheet["!cols"] = ORDER_COL_WIDTHS;
 
-  // Save the workbook
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Order Details");
   XLSX.writeFile(workbook, `TECHAI-Order-${order.id}.xlsx`);
+}
+
+export function exportAllOrdersToExcel(orders: Order[]): void {
+  const workbook = XLSX.utils.book_new();
+  const allRows = orders.flatMap((order) => transformOrderToRows(order));
+  const worksheet = XLSX.utils.aoa_to_sheet([ORDER_HEADERS, ...allRows]);
+  worksheet["!cols"] = ORDER_COL_WIDTHS;
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, "All Orders Master");
+  XLSX.writeFile(workbook, `TECHAI-All-Orders-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }

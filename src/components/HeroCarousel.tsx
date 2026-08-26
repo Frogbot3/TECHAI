@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, ChevronLeft, ChevronRight, Sparkles, Gift, Tag, Zap, ShieldCheck } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Sparkles, Tag, ShieldCheck, Zap } from "lucide-react";
 import { Product } from "@/lib/types";
 
 interface HeroCarouselProps {
@@ -29,53 +29,55 @@ interface HeroSlideItem {
 const DEFAULT_HERO_SLIDES: HeroSlideItem[] = [
   {
     id: "default-1",
-    badge: "AUDIO FESTIVAL • 50% OFF",
-    title: "Next-Gen Noise Cancelling Audio",
-    subtitle: "Immersive spatial acoustics, 40-hour ultra battery, and instant device pairing for high-fidelity listening.",
+    badge: "AUDIO FESTIVAL • UP TO 50% OFF",
+    title: "Premium Wireless Audio & Soundbars",
+    subtitle: "Immersive sound, active noise cancellation, and all-day battery life from top certified brands.",
     priceLabel: "Special Deal Price",
     price: "₹1,499",
     originalPrice: "₹2,999",
-    offer: "Flat 50% Off + Free Shipping",
+    offer: "Save 50% Today",
     category: "Electronics",
     cta: "Shop Audio Deals",
-    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1000&auto=format&fit=crop&q=85",
+    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=85",
   },
   {
     id: "default-2",
-    badge: "SMART TECH DROP",
-    title: "Flagship Wearables & AMOLED Displays",
-    subtitle: "Ultra-bright display, multi-sport precision tracking, Bluetooth calling, and titanium finish for work & sports.",
-    priceLabel: "Limited Drop",
+    badge: "SMART WEARABLES DROP",
+    title: "Flagship AMOLED Smartwatches",
+    subtitle: "Bright outdoor display, multi-day battery, Bluetooth calling, and precision health tracking.",
+    priceLabel: "Limited Time Offer",
     price: "₹1,799",
     originalPrice: "₹4,999",
-    offer: "64% Discount • Bluetooth Calling",
+    offer: "64% Discount Applied",
     category: "Mobiles & Wearables",
     cta: "Explore Smartwatches",
-    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1000&auto=format&fit=crop&q=85",
+    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=85",
   },
   {
     id: "default-3",
-    badge: "PRO GAMING & COMPUTING",
-    title: "Precision Mechanical Battlestations",
-    subtitle: "Tactile mechanical switches, dynamic RGB illumination, and ultra-low latency response engineered for winners.",
+    badge: "COMPUTING & GAMING GEAR",
+    title: "Precision Mechanical Keyboards & Gear",
+    subtitle: "Tactile mechanical feedback, dynamic RGB lighting, and ultra-fast response engineered for work & play.",
     priceLabel: "Starting from",
     price: "₹2,499",
     originalPrice: "₹4,999",
     offer: "Buy 3 Get Small Gift Free",
     category: "Computers & Gaming",
-    cta: "Upgrade Gaming Gear",
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=1000&auto=format&fit=crop&q=85",
+    cta: "Upgrade Setup",
+    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=85",
   },
 ];
 
-const HERO_EASE = [0.16, 1, 0.3, 1] as const;
-
-export default function HeroCarousel({ products = [], onExploreCategory, onSelectProduct }: HeroCarouselProps) {
+export default function HeroCarousel({
+  products = [],
+  onExploreCategory,
+  onSelectProduct,
+}: HeroCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const reduceMotion = useReducedMotion();
 
-  // Dynamically assemble slides: Hero-featured products from admin + default slides
+  // Combine admin featured products with default hero slides
   const allSlides: HeroSlideItem[] = useMemo(() => {
     const featuredFromAdmin = products
       .filter((p) => p.isHeroFeatured)
@@ -83,8 +85,8 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
         id: `hero-${p.id}`,
         badge: p.heroBadge || (p.discountPercent > 0 ? `SPECIAL DROP • ${p.discountPercent}% OFF` : "FEATURED SPOTLIGHT"),
         title: p.heroBannerHeadline || p.title,
-        subtitle: p.heroBannerSubtitle || p.description || "Premium certified smart gadget with official brand warranty & express dispatch.",
-        priceLabel: "Exclusive Store Price",
+        subtitle: p.heroBannerSubtitle || p.description || "Certified smart gadget with official 1-year brand warranty & express delivery.",
+        priceLabel: "Store Special Price",
         price: `₹${p.price.toLocaleString("en-IN")}`,
         originalPrice: p.originalPrice > p.price ? `₹${p.originalPrice.toLocaleString("en-IN")}` : undefined,
         offer: p.heroOfferText || (p.discountPercent > 0 ? `Save ${p.discountPercent}% Today` : "Free Express Delivery"),
@@ -119,107 +121,61 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
   const slide = allSlides[activeIndex] || DEFAULT_HERO_SLIDES[0];
 
   return (
-    <section className="px-3 pb-2 pt-4 sm:px-6 lg:px-8 font-sans" aria-label="Featured offers">
-      {/* Top Promotional Ribbon Ticker */}
-      <div className="mb-3.5 bg-gradient-to-r from-cyan-950 via-slate-900 to-purple-950 border border-cyan-500/20 rounded-xl px-4 py-2 flex flex-wrap items-center justify-between text-xs text-slate-300 gap-2 shadow-sm">
-        <div className="flex items-center space-x-2">
-          <span className="flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-extrabold text-[10px] uppercase tracking-wider border border-cyan-400/30">
-            <Gift className="w-3 h-3 text-cyan-300 animate-pulse" />
-            <span>Storewide Perks</span>
-          </span>
-          <span className="font-semibold text-slate-200">
-            Buy 3 Items & Get a Small Surprise Gift Free • Orders above ₹20,000 receive a Premium Tech Accessory!
-          </span>
-        </div>
-        <div className="hidden md:flex items-center space-x-3 text-[11px] font-bold text-cyan-400">
-          <span className="flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> 100% Genuine</span>
-          <span>•</span>
-          <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5 text-amber-400" /> Fast Delivery</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        {/* Main Hero Slider Box */}
+    <section className="px-3 sm:px-6 lg:px-8 pt-3 pb-2 font-sans" aria-label="Hero Featured Deals">
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-12">
+        {/* Main Hero Banner Box */}
         <div
-          className="relative min-h-[440px] overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-slate-800/80 px-6 py-8 text-white shadow-2xl sm:min-h-[400px] sm:px-10 sm:py-9 lg:col-span-8 relative group"
+          className="relative min-h-[380px] sm:min-h-[380px] lg:min-h-[400px] overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 text-white shadow-md p-5 sm:p-8 lg:col-span-8 flex flex-col justify-between"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
           onFocusCapture={() => setIsPaused(true)}
-          onBlurCapture={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node)) setIsPaused(false);
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsPaused(false);
           }}
         >
-          {/* Ambient Lighting Gradients */}
-          <div className="pointer-events-none absolute -right-10 -top-10 h-80 w-80 rounded-full bg-cyan-500/15 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-10 right-1/4 h-80 w-80 rounded-full bg-purple-500/15 blur-3xl" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(6,182,212,0.05),transparent_40%)]" />
-
+          {/* Slide Content */}
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={String(slide.id)}
-              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
-              transition={{ duration: reduceMotion ? 0.15 : 0.45, ease: HERO_EASE }}
-              className="relative grid min-h-[350px] items-center gap-6 sm:grid-cols-12"
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -10 }}
+              transition={{ duration: reduceMotion ? 0.15 : 0.3 }}
+              className="grid grid-cols-1 sm:grid-cols-12 items-center gap-6 my-auto"
             >
-              {/* Left Details Column */}
-              <div className="relative z-10 order-1 space-y-4 sm:col-span-7">
-                <motion.span
-                  initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.05, duration: 0.3 }}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-cyan-300 shadow-sm"
-                >
+              {/* Left Column: Typography & CTAs */}
+              <div className="order-2 sm:order-1 sm:col-span-7 space-y-3">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800 border border-slate-700 text-cyan-300 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider">
                   <Sparkles className="w-3 h-3 text-cyan-400" />
                   <span>{slide.badge}</span>
-                </motion.span>
+                </span>
 
-                <motion.h1
-                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1, duration: 0.4 }}
-                  className="text-2xl font-black leading-tight tracking-tight text-white sm:text-3xl lg:text-4xl line-clamp-2"
-                >
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-snug tracking-tight line-clamp-2">
                   {slide.title}
-                </motion.h1>
+                </h1>
 
-                <motion.p
-                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15, duration: 0.4 }}
-                  className="max-w-md text-xs sm:text-sm leading-relaxed text-slate-300 line-clamp-2"
-                >
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed line-clamp-2">
                   {slide.subtitle}
-                </motion.p>
+                </p>
 
                 {/* Price & Offer Row */}
-                <motion.div
-                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2, duration: 0.4 }}
-                  className="pt-1 space-y-1"
-                >
-                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">{slide.priceLabel}</p>
-                  <div className="flex flex-wrap items-baseline gap-2.5">
-                    <span className="text-2xl sm:text-3xl font-black text-amber-400 tracking-tight">{slide.price}</span>
-                    {slide.originalPrice && (
-                      <span className="text-sm font-semibold text-slate-400 line-through">{slide.originalPrice}</span>
-                    )}
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[11px]">
-                      <Tag className="w-3 h-3" />
-                      <span>{slide.offer}</span>
+                <div className="pt-1 flex flex-wrap items-baseline gap-2.5">
+                  <span className="text-2xl sm:text-3xl font-black text-amber-400 tracking-tight">
+                    {slide.price}
+                  </span>
+                  {slide.originalPrice && (
+                    <span className="text-xs sm:text-sm font-medium text-slate-400 line-through">
+                      {slide.originalPrice}
                     </span>
-                  </div>
-                </motion.div>
+                  )}
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-400 font-bold text-[10px] sm:text-[11px]">
+                    <Tag className="w-3 h-3" />
+                    <span>{slide.offer}</span>
+                  </span>
+                </div>
 
-                {/* Action Buttons */}
-                <motion.div
-                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.25, duration: 0.4 }}
-                  className="pt-2 flex flex-wrap items-center gap-3"
-                >
+                {/* CTA Action Buttons */}
+                <div className="pt-2 flex flex-wrap items-center gap-2.5">
                   <button
                     type="button"
                     onClick={() => {
@@ -229,45 +185,38 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
                         onExploreCategory(slide.category);
                       }
                     }}
-                    className="group inline-flex min-h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-5 text-xs font-extrabold text-slate-950 shadow-lg shadow-cyan-500/25 transition duration-200 hover:from-cyan-300 hover:to-blue-400 hover:-translate-y-0.5 active:scale-[0.98] sm:text-sm cursor-pointer"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs sm:text-sm transition shadow-sm cursor-pointer"
                   >
                     <span>{slide.cta}</span>
-                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+                    <ArrowRight className="w-4 h-4" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => onExploreCategory(slide.category)}
-                    className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900/80 px-4 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white cursor-pointer"
+                    className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-semibold transition border border-slate-700 cursor-pointer"
                   >
-                    <span>View Category</span>
+                    <span>Browse Category</span>
                   </button>
-                </motion.div>
+                </div>
               </div>
 
-              {/* Right Product Image Showcase */}
-              <motion.div
-                initial={reduceMotion ? false : { opacity: 0, scale: 0.94 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.1, duration: 0.45 }}
-                className="relative order-2 mx-auto flex h-48 w-full max-w-[280px] items-center justify-center sm:col-span-5 sm:h-72 sm:max-w-none"
-              >
-                {/* Visual Glass Platform with Soft Glow */}
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-slate-900/80 via-slate-800/40 to-cyan-900/20 border border-slate-700/50 backdrop-blur-sm shadow-inner" />
-                <div className="absolute inset-x-8 bottom-3 h-10 rounded-full bg-cyan-400/20 blur-xl" />
-
-                <img
-                  src={slide.image}
-                  alt={slide.title}
-                  className="relative z-10 max-h-[85%] max-w-[85%] object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.6)] transition-transform duration-500 hover:scale-105"
-                />
-              </motion.div>
+              {/* Right Column: Product Image Presentation */}
+              <div className="order-1 sm:order-2 sm:col-span-5 flex items-center justify-center">
+                <div className="relative w-44 h-44 sm:w-56 sm:h-56 rounded-2xl bg-slate-800/60 border border-slate-700/60 p-4 flex items-center justify-center shadow-inner">
+                  <img
+                    src={slide.image}
+                    alt={slide.title}
+                    className="max-h-full max-w-full object-contain drop-shadow-md transition-transform duration-300 hover:scale-105"
+                  />
+                </div>
+              </div>
             </motion.div>
           </AnimatePresence>
 
-          {/* Navigation Controls & Slide Indicators */}
-          <div className="relative z-20 mt-4 flex items-center justify-between gap-3 pt-2 border-t border-slate-800/60">
-            <div className="flex items-center gap-2" role="tablist" aria-label="Hero carousel offers">
+          {/* Bottom Slide Indicators & Controls */}
+          <div className="flex items-center justify-between pt-3 border-t border-slate-800/80 mt-2">
+            <div className="flex items-center gap-1.5" role="tablist" aria-label="Hero slides">
               {allSlides.map((item, index) => (
                 <button
                   key={String(item.id)}
@@ -277,87 +226,87 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
                   aria-label={`Slide ${index + 1}`}
                   onClick={() => setCurrentSlide(index)}
                   className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                    index === activeIndex ? "w-8 bg-gradient-to-r from-cyan-400 to-blue-400" : "w-2 bg-slate-700 hover:bg-slate-500"
+                    index === activeIndex ? "w-6 bg-cyan-400" : "w-2 bg-slate-700 hover:bg-slate-500"
                   }`}
                 />
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => changeSlide("previous")}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white cursor-pointer"
-                aria-label="Previous Slide"
+                className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition cursor-pointer"
+                aria-label="Previous Offer"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 onClick={() => changeSlide("next")}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white cursor-pointer"
-                aria-label="Next Slide"
+                className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition cursor-pointer"
+                aria-label="Next Offer"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         </div>
 
-        {/* Right Side Companion Deals (4 columns) */}
-        <div className="flex flex-col gap-4 sm:flex-row lg:col-span-4 lg:flex-col">
-          {/* Side Card 1: Mobiles & Smartwatches */}
+        {/* Right Column: Companion Deal Cards (4 cols on lg) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3.5 lg:col-span-4">
+          {/* Deal Card 1: Mobiles & Wearables */}
           <button
             type="button"
             onClick={() => onExploreCategory("Mobiles & Wearables")}
-            className="group relative flex min-h-[160px] flex-1 items-center justify-between overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-5 text-left shadow-lg transition duration-200 hover:-translate-y-0.5 hover:border-cyan-500/50 hover:shadow-cyan-500/10 cursor-pointer"
+            className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-200 text-left shadow-xs hover:border-slate-300 hover:shadow-sm transition cursor-pointer group"
           >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
-            <div className="relative z-10 max-w-[155px] space-y-1.5">
-              <span className="inline-block text-[10px] font-black uppercase tracking-wider text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded-md border border-cyan-800">
-                SMART TECH
+            <div className="space-y-1 max-w-[170px]">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+                SMART WATCHES
               </span>
-              <span className="block text-base font-black text-white leading-tight">
-                AMOLED Smart Watches
-              </span>
-              <span className="block text-xs font-extrabold text-amber-400">Up to 64% Off</span>
-              <span className="inline-flex items-center gap-1 pt-1 text-[11px] font-bold text-cyan-400 group-hover:underline">
-                Explore Deals <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+              <h2 className="text-sm font-bold text-slate-900 leading-tight">
+                AMOLED Calling Watches
+              </h2>
+              <p className="text-xs font-bold text-rose-600">Up to 64% Off</p>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-700 group-hover:underline pt-0.5">
+                <span>View Deals</span>
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
               </span>
             </div>
-            <div className="relative w-24 h-24 rounded-2xl bg-slate-800/60 p-2 border border-slate-700/60 flex items-center justify-center flex-shrink-0">
+            <div className="w-20 h-20 rounded-xl bg-slate-50 border border-slate-100 p-1.5 flex items-center justify-center flex-shrink-0">
               <img
-                src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80"
-                alt="Smart watch deal"
-                className="max-h-full max-w-full object-contain drop-shadow-md group-hover:scale-105 transition-transform"
+                src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&auto=format&fit=crop&q=80"
+                alt="Smartwatch deal"
+                className="max-h-full max-w-full object-contain"
               />
             </div>
           </button>
 
-          {/* Side Card 2: Computers & Gaming Gear */}
+          {/* Deal Card 2: Computers & Gaming */}
           <button
             type="button"
             onClick={() => onExploreCategory("Computers & Gaming")}
-            className="group relative flex min-h-[160px] flex-1 items-center justify-between overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-5 text-left shadow-lg transition duration-200 hover:-translate-y-0.5 hover:border-purple-500/50 hover:shadow-purple-500/10 cursor-pointer"
+            className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-200 text-left shadow-xs hover:border-slate-300 hover:shadow-sm transition cursor-pointer group"
           >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
-            <div className="relative z-10 max-w-[155px] space-y-1.5">
-              <span className="inline-block text-[10px] font-black uppercase tracking-wider text-purple-400 bg-purple-950/80 px-2 py-0.5 rounded-md border border-purple-800">
-                PRO GAMING
+            <div className="space-y-1 max-w-[170px]">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                GAMING & TECH
               </span>
-              <span className="block text-base font-black text-white leading-tight">
-                Keyboards & Audio
-              </span>
-              <span className="block text-xs font-extrabold text-emerald-400">Starting at ₹499</span>
-              <span className="inline-flex items-center gap-1 pt-1 text-[11px] font-bold text-purple-400 group-hover:underline">
-                Shop Gear <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+              <h2 className="text-sm font-bold text-slate-900 leading-tight">
+                Keyboards & Headsets
+              </h2>
+              <p className="text-xs font-bold text-emerald-700">Starting from ₹499</p>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 group-hover:underline pt-0.5">
+                <span>Shop Gaming</span>
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
               </span>
             </div>
-            <div className="relative w-24 h-24 rounded-2xl bg-slate-800/60 p-2 border border-slate-700/60 flex items-center justify-center flex-shrink-0">
+            <div className="w-20 h-20 rounded-xl bg-slate-50 border border-slate-100 p-1.5 flex items-center justify-center flex-shrink-0">
               <img
-                src="https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&auto=format&fit=crop&q=80"
+                src="https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300&auto=format&fit=crop&q=80"
                 alt="Gaming gear deal"
-                className="max-h-full max-w-full object-contain drop-shadow-md group-hover:scale-105 transition-transform"
+                className="max-h-full max-w-full object-contain"
               />
             </div>
           </button>

@@ -7,7 +7,7 @@ import TechAiLogo from "@/components/TechAiLogo";
 import { Product, Order, OrderStatus, User, Review } from "@/lib/types";
 import { CATEGORIES } from "@/lib/data";
 import { generateOrderInvoice } from "@/lib/generateInvoice";
-import { exportSingleOrderToExcel } from "@/lib/exportOrderExcel";
+import { exportSingleOrderToExcel, exportAllOrdersToExcel } from "@/lib/exportOrderExcel";
 import { exportAnalyticsToPdf, exportAnalyticsToExcel } from "@/lib/exportAnalyticsReport";
 import * as XLSX from "xlsx";
 import {
@@ -1157,15 +1157,27 @@ export default function AdminDashboardPage() {
                     Download full Amazon/Flipkart-style Tax Invoice PDF or complete individual Excel file with address, payment ID, and itemized specs.
                   </p>
                 </div>
-                <div className="relative max-w-xs w-full">
-                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-                  <input
-                    type="text"
-                    placeholder="Filter by Order ID, Phone, Customer..."
-                    value={orderSearch}
-                    onChange={(e) => setOrderSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                  />
+                <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => exportAllOrdersToExcel(orders)}
+                    className="px-3.5 py-2 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer shadow-sm flex-shrink-0"
+                    title="Export all database orders into single master Excel spreadsheet"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                    <span>Export All Orders (Excel)</span>
+                  </button>
+
+                  <div className="relative max-w-xs w-full">
+                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Filter by Order ID, Phone, Customer..."
+                      value={orderSearch}
+                      onChange={(e) => setOrderSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
                 </div>
               </div>
 
