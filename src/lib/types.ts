@@ -25,10 +25,16 @@ export interface Product {
   rating: number;
   reviewCount: number;
   image: string;
+  images?: string[];
   stock: number;
   isAiProduct?: boolean;
   isTrending?: boolean;
   isBestSeller?: boolean;
+  isHeroFeatured?: boolean;
+  heroBannerHeadline?: string;
+  heroBannerSubtitle?: string;
+  heroBadge?: string;
+  heroOfferText?: string;
   description: string;
   features: string[];
   specs: Record<string, string>;

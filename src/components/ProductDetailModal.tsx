@@ -42,10 +42,22 @@ export default function ProductDetailModal({
 }: ProductDetailModalProps) {
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<"overview" | "specs" | "reviews">("overview");
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
+  // Reset selected image when product changes
+  React.useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [product?.id]);
 
   if (!product) return null;
 
   const isOutOfStock = product.stock <= 0;
+
+  const galleryImages = (product.images && product.images.length > 0)
+    ? product.images
+    : [product.image];
+
+  const currentDisplayImage = galleryImages[selectedImageIndex] || product.image;
 
   const handleQtyChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, Math.min(product.stock, prev + delta)));
@@ -72,27 +84,47 @@ export default function ProductDetailModal({
 
           <div className="flex-1 overflow-y-auto p-5 sm:p-8">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8">
-              {/* Left Column: Image Box */}
+              {/* Left Column: Image Box & Thumbnail Gallery */}
               <div className="md:col-span-5 flex flex-col space-y-3">
-                <div className="w-full aspect-square bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center p-6 relative overflow-hidden">
+                <div className="w-full aspect-square bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-center p-6 relative overflow-hidden shadow-inner">
                   {product.discountPercent > 0 && (
                     <span className="absolute top-3 left-3 bg-rose-600 text-white text-xs font-bold px-2 py-0.5 rounded shadow-xs">
                       {product.discountPercent}% OFF
                     </span>
                   )}
                   <img
-                    src={product.image}
+                    src={currentDisplayImage}
                     alt={product.title}
-                    className="max-h-full max-w-full object-contain"
+                    className="max-h-full max-w-full object-contain transition-all duration-200"
                   />
                 </div>
+
+                {/* Multiple Images Thumbnail Strip (Up to 7 images) */}
+                {galleryImages.length > 1 && (
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1">
+                    {galleryImages.slice(0, 7).map((imgUrl, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedImageIndex(idx)}
+                        className={`w-12 h-12 rounded-xl p-1 bg-slate-50 border transition-all flex-shrink-0 cursor-pointer overflow-hidden ${
+                          selectedImageIndex === idx
+                            ? "border-cyan-600 ring-2 ring-cyan-500/30 scale-105 shadow-sm"
+                            : "border-slate-200 hover:border-slate-400 opacity-70 hover:opacity-100"
+                        }`}
+                      >
+                        <img src={imgUrl} alt="" className="w-full h-full object-contain" />
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Compare Trigger Button */}
                 {onOpenCompare && (
                   <button
                     type="button"
                     onClick={() => onOpenCompare(product)}
-                    className="w-full py-2 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="w-full py-2 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <ArrowLeftRight className="w-3.5 h-3.5 text-cyan-600" />
                     <span>Compare with Similar Products</span>

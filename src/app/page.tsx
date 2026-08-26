@@ -5,6 +5,7 @@ import { useTechAiStore } from "@/lib/store";
 import Navbar from "@/components/Navbar";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import HeroCarousel from "@/components/HeroCarousel";
+import Footer from "@/components/Footer";
 import FlashDealsSection from "@/components/FlashDealsSection";
 import CategoryBubbles from "@/components/CategoryBubbles";
 import ShopByNeedSection from "@/components/ShopByNeedSection";
@@ -214,7 +215,11 @@ export default function HomePage() {
           /* HOMEPAGE SHOWCASE */
           <div className="space-y-4">
             {/* 2. Main Hero Section */}
-            <HeroCarousel onExploreCategory={(cat) => setSelectedCategory(cat)} />
+            <HeroCarousel
+              products={store.products}
+              onExploreCategory={(cat) => setSelectedCategory(cat)}
+              onSelectProduct={(p) => setQuickViewProduct(p)}
+            />
 
             {/* 3. Flash Deals Section with Clean Countdown */}
             <FlashDealsSection
@@ -437,126 +442,11 @@ export default function HomePage() {
       </main>
 
       {/* 9. Professional Marketplace Footer */}
-      <footer className="bg-slate-950 text-slate-400 border-t border-slate-900 pt-12 pb-8 px-4 sm:px-6 lg:px-8 text-xs">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 mb-10">
-          {/* Col 1: Brand Info */}
-          <div className="lg:col-span-2 space-y-3">
-            <TechAiLogo size="md" />
-            <p className="text-slate-400 leading-relaxed max-w-sm">
-              TECH AI is an online shopping destination for genuine electronics, smart wearables, gaming gear, home appliances, and daily essentials.
-            </p>
-            <p className="text-[11px] text-slate-500 font-medium">
-              Demo Marketplace Platform • Built with Next.js & React
-            </p>
-          </div>
-
-          {/* Col 2: Customer Care */}
-          <div>
-            <h4 className="font-bold text-white uppercase tracking-wider mb-3 text-[11px]">
-              Customer Service
-            </h4>
-            <ul className="space-y-2 text-slate-400">
-              <li>
-                <Link href="/orders" className="hover:text-white transition-colors">
-                  My Orders & Invoices
-                </Link>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setIsTrackingOpen(true)}
-                  className="hover:text-white transition-colors text-left"
-                >
-                  Live Order Tracking
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setIsAuthOpen(true)}
-                  className="hover:text-white transition-colors text-left"
-                >
-                  Account Login
-                </button>
-              </li>
-              <li>
-                <Link href="/admin/login" className="hover:text-amber-400 transition-colors">
-                  Admin Portal
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Col 3: Categories */}
-          <div>
-            <h4 className="font-bold text-white uppercase tracking-wider mb-3 text-[11px]">
-              Shop Categories
-            </h4>
-            <ul className="space-y-2 text-slate-400">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCategory("Electronics")}
-                  className="hover:text-white transition-colors"
-                >
-                  Electronics & Audio
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCategory("Mobiles & Wearables")}
-                  className="hover:text-white transition-colors"
-                >
-                  Mobiles & Smartwatches
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCategory("Home Appliances")}
-                  className="hover:text-white transition-colors"
-                >
-                  Home & Kitchen
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCategory("Computers & Gaming")}
-                  className="hover:text-white transition-colors"
-                >
-                  Computers & Gaming
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {/* Col 4: Payments & Security */}
-          <div>
-            <h4 className="font-bold text-white uppercase tracking-wider mb-3 text-[11px]">
-              Payment & Security
-            </h4>
-            <p className="text-[11px] text-slate-400 leading-relaxed mb-3">
-              We support UPI, Cards, NetBanking, and Cash on Delivery. All transactions are securely processed.
-            </p>
-            <span className="inline-block px-2.5 py-1 bg-slate-900 border border-slate-800 text-emerald-400 font-semibold rounded text-[11px]">
-              ✓ 256-Bit SSL Encrypted
-            </span>
-          </div>
-        </div>
-
-        {/* Bottom Legal Row */}
-        <div className="max-w-7xl mx-auto border-t border-slate-900 pt-6 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-3">
-          <p>© {new Date().getFullYear()} TECH AI E-Commerce. All rights reserved.</p>
-          <div className="flex items-center space-x-4">
-            <span className="hover:text-slate-400 cursor-pointer">Privacy Policy</span>
-            <span className="hover:text-slate-400 cursor-pointer">Terms of Service</span>
-            <span className="hover:text-slate-400 cursor-pointer">Return Policy</span>
-            <span className="hover:text-slate-400 cursor-pointer">Contact Support</span>
-          </div>
-        </div>
-      </footer>
+      <Footer
+        onOpenTracking={() => setIsTrackingOpen(true)}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onSelectCategory={(cat) => setSelectedCategory(cat)}
+      />
 
       {/* Mini-Cart Non-Blocking Feedback Toast */}
       <MiniCartToast

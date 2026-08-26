@@ -20,10 +20,16 @@ export interface IProduct extends Document {
   rating: number;
   reviewCount: number;
   image: string;
+  images?: string[];
   stock: number;
   isAiProduct: boolean;
   isTrending: boolean;
   isBestSeller: boolean;
+  isHeroFeatured?: boolean;
+  heroBannerHeadline?: string;
+  heroBannerSubtitle?: string;
+  heroBadge?: string;
+  heroOfferText?: string;
   description: string;
   features: string[];
   specs: Record<string, string>;
@@ -44,10 +50,16 @@ const ProductSchema = new Schema<IProduct>(
     rating: { type: Number, default: 4.5 },
     reviewCount: { type: Number, default: 120 },
     image: { type: String, required: true },
+    images: [{ type: String }],
     stock: { type: Number, required: true, default: 10 },
     isAiProduct: { type: Boolean, default: false },
     isTrending: { type: Boolean, default: false },
     isBestSeller: { type: Boolean, default: false },
+    isHeroFeatured: { type: Boolean, default: false },
+    heroBannerHeadline: { type: String, default: "" },
+    heroBannerSubtitle: { type: String, default: "" },
+    heroBadge: { type: String, default: "" },
+    heroOfferText: { type: String, default: "" },
     description: { type: String, default: "" },
     features: [{ type: String }],
     specs: { type: Map, of: String, default: {} },

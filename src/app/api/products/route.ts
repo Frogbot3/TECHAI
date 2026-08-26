@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import Product from "@/models/Product";
 import { INITIAL_PRODUCTS } from "@/lib/data";
@@ -37,7 +37,8 @@ export async function GET() {
   try {
     await connectToDatabase();
 
-    if (process.env.SYNC_SEED_PRODUCTS !== "false") {
+    const existingCount = await Product.countDocuments();
+    if (existingCount === 0) {
       await Product.bulkWrite(seedOperations(), { ordered: false });
     }
 
@@ -61,6 +62,10 @@ export async function POST(req: Request) {
     const body = await req.json();
     await connectToDatabase();
 
+    const images = Array.isArray(body.images) && body.images.length > 0
+      ? body.images
+      : [body.image || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900&auto=format&fit=crop&q=80"];
+
     const product = await Product.create({
       productId: body.id || `prod-${Date.now()}`,
       title: body.title,
@@ -71,14 +76,21 @@ export async function POST(req: Request) {
       discountPercent: Number(body.discountPercent || 0),
       rating: Number(body.rating || 4.2),
       reviewCount: Number(body.reviewCount || 0),
-      image: body.image || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900&auto=format&fit=crop&q=80",
+      image: images[0],
+      images: images,
       stock: Number(body.stock || 0),
       isAiProduct: !!body.isAiProduct,
       isTrending: !!body.isTrending,
       isBestSeller: !!body.isBestSeller,
+      isHeroFeatured: !!body.isHeroFeatured,
+      heroBannerHeadline: body.heroBannerHeadline || "",
+      heroBannerSubtitle: body.heroBannerSubtitle || "",
+      heroBadge: body.heroBadge || "",
+      heroOfferText: body.heroOfferText || "",
       description: body.description || "Reliable product with fast delivery and customer support.",
       features: Array.isArray(body.features) ? body.features : [],
       specs: body.specs || {},
+      reviews: Array.isArray(body.reviews) ? body.reviews : [],
     });
 
     return NextResponse.json({

@@ -10,6 +10,7 @@ import InvoicePreviewModal from "@/components/InvoicePreviewModal";
 import WriteReviewModal from "@/components/WriteReviewModal";
 import CartDrawer from "@/components/CartDrawer";
 import AuthModal from "@/components/AuthModal";
+import Footer from "@/components/Footer";
 import { useTechAiStore } from "@/lib/store";
 import { Order, Product } from "@/lib/types";
 import { generateOrderInvoice } from "@/lib/generateInvoice";
@@ -388,6 +389,19 @@ export default function OrdersPage() {
           )}
         </div>
       </main>
+
+      <Footer
+        onOpenTracking={() => {
+          setActiveTrackingOrderId("");
+          setTrackingModalOpen(true);
+        }}
+        onOpenAuth={() => {
+          if (!store.user) setIsAuthOpen(true);
+        }}
+        onSelectCategory={() => {
+          window.location.assign("/");
+        }}
+      />
 
       {/* Modals */}
       <OrderTrackingModal
