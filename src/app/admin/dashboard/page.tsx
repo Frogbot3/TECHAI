@@ -1160,7 +1160,7 @@ export default function AdminDashboardPage() {
                 <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
                   <button
                     type="button"
-                    onClick={() => exportAllOrdersToExcel(orders)}
+                    onClick={exportAllOrdersToExcel}
                     className="px-3.5 py-2 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer shadow-sm flex-shrink-0"
                     title="Export all database orders into single master Excel spreadsheet"
                   >

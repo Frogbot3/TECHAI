@@ -55,7 +55,7 @@ const UserSchema = new Schema<IUser>(
     avatar: { type: String, default: "" },
     googleId: { type: String, default: "" },
     /** Firebase UID for stable cross-provider identity linking */
-    firebaseUid: { type: String, default: "", index: true },
+    firebaseUid: { type: String, default: "" },
     provider: { type: String, enum: ["phone", "email", "google"], default: "phone" },
     // Legacy plaintext OTP fields (still used for phone OTP stored on the document)
     otp: { type: String, default: null },

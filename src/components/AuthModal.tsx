@@ -31,6 +31,7 @@ import {
 import {
   auth,
   googleProvider,
+  isFirebaseConfigured,
   RecaptchaVerifier,
   signInWithPhoneNumber,
   signInWithPopup,
@@ -46,6 +47,7 @@ type AuthMethod = "GOOGLE" | "PHONE" | "EMAIL";
 type Step = "METHOD_SELECT" | "PHONE_INPUT" | "PHONE_OTP" | "EMAIL_INPUT" | "EMAIL_OTP";
 
 const RESEND_COOLDOWN_SEC = 60;
+const FIREBASE_CONFIG_ERROR = "Firebase sign-in is not configured for this deployment. Please contact support.";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -240,6 +242,11 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
 
   const handleGoogleSignIn = async () => {
     setNotice(null);
+    if (!isFirebaseConfigured || !auth || !googleProvider) {
+      setNotice({ type: "error", msg: FIREBASE_CONFIG_ERROR });
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
@@ -273,6 +280,11 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
     clearRecaptcha();
 
     try {
+      if (!isFirebaseConfigured || !auth) {
+        setNotice({ type: "error", msg: FIREBASE_CONFIG_ERROR });
+        return;
+      }
+
       if (!recaptchaContainerRef.current) throw new Error("reCAPTCHA container not found.");
 
       // Initialize invisible reCAPTCHA (required by Firebase Phone Auth)
