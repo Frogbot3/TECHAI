@@ -30,6 +30,11 @@ const setStorage = <T,>(key: string, value: T) => {
   }
 };
 
+const normalizeWishlist = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((item): item is string => typeof item === "string"))];
+};
+
 export function useTechAiStore() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -107,7 +112,7 @@ export function useTechAiStore() {
     const loadedProducts = getStorage<Product[]>(PRODUCTS_KEY, INITIAL_PRODUCTS).map(toClientProduct);
     const loadedCart = getStorage<CartItem[]>(CART_KEY, []).map(normalizeCartItem);
     const loadedOrders = getStorage<Order[]>(ORDERS_KEY, []).map(toClientOrder);
-    const loadedWishlist = getStorage<string[]>(WISHLIST_KEY, []);
+    const loadedWishlist = normalizeWishlist(getStorage<unknown>(WISHLIST_KEY, []));
     const loadedUser = getStorage<User | null>(USER_KEY, null);
 
     setProducts(loadedProducts);
@@ -379,11 +384,14 @@ export function useTechAiStore() {
   };
 
   const toggleWishlist = (productId: string) => {
-    const updated = wishlist.includes(productId)
-      ? wishlist.filter((id) => id !== productId)
-      : [...wishlist, productId];
-    setWishlist(updated);
-    setStorage(WISHLIST_KEY, updated);
+    setWishlist((currentWishlist) => {
+      const updated = currentWishlist.includes(productId)
+        ? currentWishlist.filter((id) => id !== productId)
+        : [...new Set([...currentWishlist, productId])];
+
+      setStorage(WISHLIST_KEY, updated);
+      return updated;
+    });
   };
 
   const addReviewToProduct = (productId: string, reviewData: { userName: string; rating: number; comment: string }) => {
