@@ -52,7 +52,34 @@ html {
   padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
 
+.safe-area-bottom-bar {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* Subtle standard transitions */
 .transition-standard {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Product Image Container Standard */
+.product-image-box {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  background-color: #f8fafc;
+  border-radius: 0.875rem;
+  border: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0.75rem;
+}
+
+.product-image-box img {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: center;
+  transition: transform 0.3s ease;
 }

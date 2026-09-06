@@ -23,6 +23,7 @@ import InvoicePreviewModal from "@/components/InvoicePreviewModal";
 import WriteReviewModal from "@/components/WriteReviewModal";
 import AiShoppingAssistant from "@/components/AiShoppingAssistant";
 import TechAiLogo from "@/components/TechAiLogo";
+import RecentlyViewedSection, { recordRecentlyViewed } from "@/components/RecentlyViewedSection";
 import { Product, Order } from "@/lib/types";
 import {
   Sparkles,
@@ -62,6 +63,7 @@ export default function HomePage() {
   const [lastAddedProduct, setLastAddedProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isTrackingOpen, setIsTrackingOpen] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<string | undefined>(undefined);
@@ -146,13 +148,21 @@ export default function HomePage() {
 
   const handleAddToCartWithToast = (product: Product, quantity = 1) => {
     store.addToCart(product, quantity);
+    recordRecentlyViewed(product.id);
     setLastAddedProduct(product);
+  };
+
+  const handleOpenProductDetail = (product: Product) => {
+    recordRecentlyViewed(product.id);
+    setQuickViewProduct(product);
   };
 
   const handleBuyNow = (product: Product, quantity: number) => {
     store.addToCart(product, quantity);
+    recordRecentlyViewed(product.id);
     setQuickViewProduct(null);
     if (!store.user) {
+      setPendingCheckout(true);
       setIsAuthOpen(true);
     } else {
       setIsCheckoutOpen(true);
@@ -162,6 +172,7 @@ export default function HomePage() {
   const handleProceedToCheckout = (couponCode?: string) => {
     setAppliedCoupon(couponCode);
     if (!store.user) {
+      setPendingCheckout(true);
       setIsAuthOpen(true);
     } else {
       setIsCheckoutOpen(true);
@@ -184,11 +195,23 @@ export default function HomePage() {
     setSelectedCategory("All Categories");
   };
 
+  const handleResetHome = () => {
+    setSelectedCategory("All Categories");
+    setSearchQuery("");
+    setSelectedBrands([]);
+    setSelectedPriceRange(null);
+    setMinRating(null);
+    setInStockOnly(false);
+    setMinDiscount(null);
+    setIsMobileFilterOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const cartCount = store.cart.reduce((sum, item) => sum + item.quantity, 0);
   const isHomeShowcase = selectedCategory === "All Categories" && !searchQuery.trim();
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col justify-between selection:bg-cyan-500 selection:text-slate-950 pb-16 md:pb-0">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-cyan-500 selection:text-slate-950 pb-20 md:pb-8">
       {/* 1. Header with Live Search & Mega Menu */}
       <Navbar
         cartCount={cartCount}
@@ -200,13 +223,17 @@ export default function HomePage() {
         setSelectedCategory={setSelectedCategory}
         products={store.products}
         onOpenCart={() => setIsCartOpen(true)}
-        onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenAuth={() => {
+          setPendingCheckout(false);
+          setIsAuthOpen(true);
+        }}
         onOpenTracking={() => {
           setTrackingOrderId("");
           setIsTrackingOpen(true);
         }}
-        onSelectProduct={(p) => setQuickViewProduct(p)}
+        onSelectProduct={handleOpenProductDetail}
         onLogout={store.logoutUser}
+        onResetHome={handleResetHome}
       />
 
       {/* Main Content Area */}
@@ -315,7 +342,16 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* 8. Trust Features */}
+            {/* 8. Recently Viewed Products */}
+            <RecentlyViewedSection
+              allProducts={store.products}
+              wishlist={store.wishlist}
+              onAddToCart={handleAddToCartWithToast}
+              onQuickView={handleOpenProductDetail}
+              onToggleWishlist={store.toggleWishlist}
+            />
+
+            {/* 9. Trust Features */}
             <TrustBadgesBar />
           </div>
         ) : (
@@ -365,9 +401,9 @@ export default function HomePage() {
             </div>
 
             {/* Main Listing Layout (Sidebar Filter + Product Grid) */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
               {/* Desktop Filter Sidebar (3 cols) */}
-              <div className="hidden md:block md:col-span-3">
+              <div className="hidden md:block md:col-span-3 sticky top-24 self-start">
                 <FilterSidebar
                   products={store.products}
                   selectedBrands={selectedBrands}
@@ -386,7 +422,17 @@ export default function HomePage() {
 
               {/* Mobile Slide-down Filter */}
               {isMobileFilterOpen && (
-                <div className="md:hidden col-span-1 mb-4">
+                <div className="md:hidden col-span-1 mb-4 bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <span className="font-bold text-xs text-slate-900">Refine Filters</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileFilterOpen(false)}
+                      className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold"
+                    >
+                      Apply & Close
+                    </button>
+                  </div>
                   <FilterSidebar
                     products={store.products}
                     selectedBrands={selectedBrands}
@@ -404,10 +450,10 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* Product Cards Grid (9 cols) */}
-              <div className="md:col-span-9">
+              {/* Product Cards Column (9 cols) */}
+              <div className="md:col-span-9 self-start space-y-8">
                 {filteredProducts.length === 0 ? (
-                  <div className="bg-white rounded-xl border border-slate-200 p-12 text-center space-y-3">
+                  <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3 shadow-xs">
                     <Sparkles className="w-8 h-8 text-slate-300 mx-auto" />
                     <h3 className="text-sm font-bold text-slate-800">No products match your filters</h3>
                     <p className="text-xs text-slate-500">
@@ -416,23 +462,72 @@ export default function HomePage() {
                     <button
                       type="button"
                       onClick={handleResetFilters}
-                      className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors"
+                      className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors"
                     >
                       Clear All Filters
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-                    {filteredProducts.map((product) => (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        isInWishlist={store.wishlist.includes(product.id)}
-                        onAddToCart={handleAddToCartWithToast}
-                        onQuickView={(p) => setQuickViewProduct(p)}
-                        onToggleWishlist={store.toggleWishlist}
-                      />
-                    ))}
+                  <div className="space-y-8">
+                    <div
+                      className={`grid gap-3 sm:gap-4 items-stretch ${
+                        filteredProducts.length === 1
+                          ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-xl"
+                          : filteredProducts.length === 2
+                          ? "grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 max-w-3xl"
+                          : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+                      }`}
+                    >
+                      {filteredProducts.map((product) => (
+                        <ProductCard
+                          key={product.id}
+                          product={product}
+                          isInWishlist={store.wishlist.includes(product.id)}
+                          onAddToCart={handleAddToCartWithToast}
+                          onQuickView={handleOpenProductDetail}
+                          onToggleWishlist={store.toggleWishlist}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Fallback recommendation block when few products in category */}
+                    {filteredProducts.length < 5 && (
+                      <div className="pt-6 border-t border-slate-200/80">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                              Explore More Departments
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                              Top customer favorites across other categories
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleResetHome}
+                            className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>View All Products</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
+                          {store.products
+                            .filter((p) => p.category !== selectedCategory)
+                            .slice(0, 4)
+                            .map((product) => (
+                              <ProductCard
+                                key={`rec-${product.id}`}
+                                product={product}
+                                isInWishlist={store.wishlist.includes(product.id)}
+                                onAddToCart={handleAddToCartWithToast}
+                                onQuickView={handleOpenProductDetail}
+                                onToggleWishlist={store.toggleWishlist}
+                              />
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -493,10 +588,16 @@ export default function HomePage() {
       {/* Auth Modal */}
       <AuthModal
         isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
+        onClose={() => {
+          setIsAuthOpen(false);
+          setPendingCheckout(false);
+        }}
         onLoginSuccess={(user) => {
           store.setAuthenticatedUser(user);
-          setIsCheckoutOpen(true);
+          if (pendingCheckout) {
+            setIsCheckoutOpen(true);
+            setPendingCheckout(false);
+          }
         }}
       />
 
@@ -549,7 +650,7 @@ export default function HomePage() {
         onAddToCart={handleAddToCartWithToast}
       />
 
-      {/* Mobile Bottom Navigation Bar (5 tabs) */}
+      {/* Mobile Bottom Navigation Bar */}
       <MobileBottomNav
         cartCount={cartCount}
         wishlistCount={store.wishlist.length}
@@ -562,13 +663,16 @@ export default function HomePage() {
           }
         }}
         onOpenCategories={() => {
-          setSelectedCategory("All Categories");
-          const el = document.getElementById("categories-section");
-          if (el) el.scrollIntoView({ behavior: "smooth" });
+          handleResetHome();
+          setTimeout(() => {
+            const el = document.getElementById("categories-section");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }, 80);
         }}
         onOpenSearch={() => {
           window.scrollTo({ top: 0, behavior: "smooth" });
         }}
+        onResetHome={handleResetHome}
       />
     </div>
   );

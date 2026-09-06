@@ -136,6 +136,7 @@ export function toClientUser(value: any): User {
     email: user.email || "",
     avatar: user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.email || phone || "TA")}`,
     addresses: user.addresses || [],
+    wishlist: Array.isArray(user.wishlist) ? user.wishlist : [],
     role: user.role || "customer",
     isLoggedIn: true,
   };

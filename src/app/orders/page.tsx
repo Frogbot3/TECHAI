@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import TechAiLogo from "@/components/TechAiLogo";
@@ -34,6 +35,7 @@ import {
 } from "lucide-react";
 
 export default function OrdersPage() {
+  const router = useRouter();
   const store = useTechAiStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "PLACED" | "SHIPPED" | "DELIVERED">("ALL");
@@ -90,14 +92,17 @@ export default function OrdersPage() {
         searchQuery=""
         setSearchQuery={() => {}}
         selectedCategory="All Categories"
-        setSelectedCategory={() => {}}
+        setSelectedCategory={() => router.push("/")}
+        products={store.products}
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenTracking={() => {
           setActiveTrackingOrderId("");
           setTrackingModalOpen(true);
         }}
+        onSelectProduct={(p) => router.push(`/product/${encodeURIComponent(p.id)}`)}
         onLogout={store.logoutUser}
+        onResetHome={() => router.push("/")}
       />
 
       <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -450,11 +455,14 @@ export default function OrdersPage() {
       <MobileBottomNav
         cartCount={cartCount}
         wishlistCount={store.wishlist.length}
-        activeTab="orders"
+        activeTab="account"
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAuth={() => {
           if (!store.user) setIsAuthOpen(true);
         }}
+        onOpenCategories={() => router.push("/")}
+        onOpenSearch={() => router.push("/")}
+        onResetHome={() => router.push("/")}
       />
     </div>
   );

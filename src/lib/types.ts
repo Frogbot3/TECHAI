@@ -103,6 +103,7 @@ export interface User {
   email: string;
   avatar?: string;
   addresses?: ShippingAddress[];
+  wishlist?: string[];
   role?: "customer" | "admin";
   isLoggedIn: boolean;
 }

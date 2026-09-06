@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -80,7 +80,14 @@ export default function CartDrawer({
             ) : (
               cart.map((item) => (
                 <div key={item.product.id} className="grid grid-cols-[72px_1fr_auto] gap-3 rounded-lg border border-slate-200 bg-white p-3">
-                  <img src={item.product.image} alt={item.product.title} className="h-[72px] w-[72px] rounded-md bg-slate-50 object-contain p-1" />
+                  <img
+                    src={item.product.image}
+                    alt={item.product.title}
+                    onError={(e) => {
+                      e.currentTarget.src = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80";
+                    }}
+                    className="h-[72px] w-[72px] rounded-lg bg-slate-50 object-contain p-1 border border-slate-100"
+                  />
                   <div className="min-w-0 space-y-2">
                     <h4 className="line-clamp-2 text-sm font-semibold text-slate-900">{item.product.title}</h4>
                     <p className="text-xs text-slate-500">Rs. {item.product.price.toLocaleString("en-IN")} each</p>

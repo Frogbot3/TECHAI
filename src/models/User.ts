@@ -27,6 +27,7 @@ export interface IUser extends Document {
     pincode: string;
     landmark?: string;
   }[];
+  wishlist: string[];
   role: "customer" | "admin";
   lastLoginAt?: Date;
   createdAt: Date;
@@ -66,6 +67,7 @@ const UserSchema = new Schema<IUser>(
     emailOtpAttempts: { type: Number, default: 0 },
     emailOtpLastSentAt: { type: Date, default: null },
     addresses: [AddressSchema],
+    wishlist: { type: [String], default: [] },
     role: { type: String, enum: ["customer", "admin"], default: "customer" },
     lastLoginAt: { type: Date, default: null },
   },

@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { CATEGORIES } from "@/lib/data";
 import TechAiLogo from "./TechAiLogo";
 import LocationModal from "./LocationModal";
 import SearchOverlay from "./SearchOverlay";
@@ -46,12 +45,23 @@ interface NavbarProps {
   onOpenTracking: () => void;
   onSelectProduct?: (product: Product) => void;
   onLogout: () => void;
+  onResetHome?: () => void;
 }
 
 const CURRENCIES = [
   { code: "INR", symbol: "₹", flag: "🇮🇳", label: "India (₹ INR)" },
   { code: "AED", symbol: "AED", flag: "🇦🇪", label: "UAE (AED)" },
   { code: "USD", symbol: "$", flag: "🇺🇸", label: "USA ($ USD)" },
+];
+
+const CATEGORIES = [
+  "All Categories",
+  "Electronics",
+  "Mobiles & Wearables",
+  "Computers & Gaming",
+  "Home Appliances",
+  "Fashion",
+  "Grocery & Essentials",
 ];
 
 const MEGA_MENU_CATEGORIES = [
@@ -107,6 +117,7 @@ export default function Navbar({
   onOpenTracking,
   onSelectProduct,
   onLogout,
+  onResetHome,
 }: NavbarProps) {
   const [userDropdown, setUserDropdown] = useState(false);
   const [currencyDropdown, setCurrencyDropdown] = useState(false);
@@ -218,7 +229,19 @@ export default function Navbar({
         {/* Main Header Bar */}
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-3 sm:gap-6">
           {/* Brand Logo */}
-          <Link href="/" className="shrink-0 flex items-center" aria-label="TECH AI home">
+          <Link
+            href="/"
+            onClick={() => {
+              if (onResetHome) {
+                onResetHome();
+              } else {
+                setSelectedCategory("All Categories");
+                setSearchQuery("");
+              }
+            }}
+            className="shrink-0 flex items-center cursor-pointer"
+            aria-label="TECH AI home"
+          >
             <TechAiLogo size="md" />
           </Link>
 
@@ -274,20 +297,20 @@ export default function Navbar({
 
           {/* Right Action Icons */}
           <div className="flex items-center space-x-1.5 sm:space-x-3 flex-shrink-0">
-            {/* Wishlist */}
-            <button
-              type="button"
-              onClick={() => setSelectedCategory("All Categories")}
-              className="relative p-2 text-slate-700 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition-colors"
+            {/* Wishlist Button with /wishlist link */}
+            <Link
+              href="/wishlist"
+              className="relative p-2 text-slate-700 hover:text-rose-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
               title="Wishlist"
+              aria-label={`Wishlist (${wishlistCount} items)`}
             >
               <Heart className="w-5 h-5" />
               {wishlistCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
-                  {wishlistCount}
+                <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
+                  {wishlistCount > 9 ? "9+" : wishlistCount}
                 </span>
               )}
-            </button>
+            </Link>
 
             {/* Cart Button */}
             <button

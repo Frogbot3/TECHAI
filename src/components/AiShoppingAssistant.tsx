@@ -85,8 +85,8 @@ export default function AiShoppingAssistant({
 
   return (
     <>
-      {/* Floating Trigger Button (Bottom-Right) */}
-      <div className="fixed bottom-16 md:bottom-6 right-4 sm:right-6 z-40">
+      {/* Floating Trigger Button (Bottom-Right, above MobileBottomNav on small screens) */}
+      <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40">
         {!isOpen && (
           <button
             type="button"
@@ -109,7 +109,7 @@ export default function AiShoppingAssistant({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-16 md:bottom-6 right-4 sm:right-6 z-50 w-full max-w-sm sm:max-w-md bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col h-[500px]"
+            className="fixed bottom-20 md:bottom-6 right-3 sm:right-6 z-50 w-[calc(100vw-1.5rem)] sm:w-96 max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col h-[460px] max-h-[75vh]"
           >
             {/* Header */}
             <div className="p-3.5 bg-slate-950 text-white flex items-center justify-between">

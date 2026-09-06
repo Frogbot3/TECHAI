@@ -100,6 +100,7 @@ export function useTechAiStore() {
       if (data.success && data.user) {
         const loggedUser = setAuthenticatedUser(data.user);
         refreshOrders("", { id: loggedUser.id, email: loggedUser.email, phone: loggedUser.phone });
+        refreshWishlist().catch(() => {});
         return loggedUser;
       }
     } catch {
@@ -125,12 +126,31 @@ export function useTechAiStore() {
     refreshProducts().catch(() => {});
     if (loadedUser) {
       refreshOrders("", { id: loadedUser.id, email: loadedUser.email, phone: loadedUser.phone });
+      refreshWishlist().catch(() => {});
     } else {
       refreshOrders().catch(() => {});
     }
     refreshSession().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const refreshWishlist = async () => {
+    try {
+      const response = await fetch("/api/wishlist");
+      const data = await response.json();
+      if (data.success && Array.isArray(data.wishlist)) {
+        setWishlist((current) => {
+          const merged = [...new Set([...current, ...data.wishlist])];
+          setStorage(WISHLIST_KEY, merged);
+          return merged;
+        });
+        return data.wishlist;
+      }
+    } catch {
+      // Local fallback
+    }
+    return wishlist;
+  };
 
   const addProduct = async (productData: Omit<Product, "id">) => {
     const optimisticProduct: Product = {
@@ -392,6 +412,43 @@ export function useTechAiStore() {
       setStorage(WISHLIST_KEY, updated);
       return updated;
     });
+
+    if (user?.isLoggedIn) {
+      fetch("/api/wishlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, action: "toggle" }),
+      }).catch(() => {});
+    }
+  };
+
+  const removeFromWishlist = (productId: string) => {
+    setWishlist((currentWishlist) => {
+      const updated = currentWishlist.filter((id) => id !== productId);
+      setStorage(WISHLIST_KEY, updated);
+      return updated;
+    });
+
+    if (user?.isLoggedIn) {
+      fetch("/api/wishlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId, action: "remove" }),
+      }).catch(() => {});
+    }
+  };
+
+  const clearWishlist = () => {
+    setWishlist([]);
+    setStorage(WISHLIST_KEY, []);
+
+    if (user?.isLoggedIn) {
+      fetch("/api/wishlist", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }).catch(() => {});
+    }
   };
 
   const addReviewToProduct = (productId: string, reviewData: { userName: string; rating: number; comment: string }) => {
@@ -434,6 +491,7 @@ export function useTechAiStore() {
     refreshProducts,
     refreshOrders,
     refreshSession,
+    refreshWishlist,
     addProduct,
     editProduct,
     refillStock,
@@ -448,6 +506,8 @@ export function useTechAiStore() {
     logoutUser,
     createOrder,
     toggleWishlist,
+    removeFromWishlist,
+    clearWishlist,
     addReviewToProduct,
   };
 }
