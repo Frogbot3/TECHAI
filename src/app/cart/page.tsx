@@ -57,7 +57,7 @@ export default function CartPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col justify-between selection:bg-cyan-500 selection:text-slate-950 pb-20 md:pb-0">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-cyan-500 selection:text-slate-950 pb-20 md:pb-0">
       <Navbar
         cartCount={cartCount}
         wishlistCount={store.wishlist.length}

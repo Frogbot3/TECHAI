@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Timer, Flame, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { Timer, Flame, ArrowRight } from "lucide-react";
 import { Product } from "@/lib/types";
 import ProductCard from "./ProductCard";
 

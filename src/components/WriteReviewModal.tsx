@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Product, User } from "@/lib/types";
+import { User } from "@/lib/types";
 import {
   X,
   Star,
@@ -10,8 +10,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Loader2,
-  Send,
-  Package
+  Send
 } from "lucide-react";
 
 interface WriteReviewModalProps {

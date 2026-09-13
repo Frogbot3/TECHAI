@@ -10,9 +10,7 @@ import { Product } from "@/lib/types";
 import {
   ChevronDown,
   Heart,
-  LogOut,
   MapPin,
-  Menu,
   PackageCheck,
   Search,
   ShieldCheck,
@@ -20,14 +18,14 @@ import {
   User,
   X,
   Flame,
-  Grid,
   Headphones,
   Smartphone,
   Laptop,
   Home,
   ShoppingBag,
-  Sparkles,
   Utensils,
+  Menu,
+  LogOut,
   ArrowRight,
 } from "lucide-react";
 
@@ -189,9 +187,8 @@ export default function Navbar({
                             setSelectedCurrency(curr);
                             setCurrencyDropdown(false);
                           }}
-                          className={`w-full text-left px-3 py-1.5 flex items-center justify-between hover:bg-slate-50 transition-colors ${
-                            selectedCurrency.code === curr.code ? "bg-cyan-50 font-bold text-cyan-800" : ""
-                          }`}
+                          className={`w-full text-left px-3 py-1.5 flex items-center justify-between hover:bg-slate-50 transition-colors ${selectedCurrency.code === curr.code ? "bg-cyan-50 font-bold text-cyan-800" : ""
+                            }`}
                         >
                           <span className="flex items-center gap-1.5">
                             <span>{curr.flag}</span>
@@ -429,11 +426,10 @@ export default function Navbar({
                 <button
                   type="button"
                   onClick={() => setIsMegaMenuOpen((prev) => !prev)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs whitespace-nowrap transition-colors ${
-                    isMegaMenuOpen || selectedCategory === "All Categories"
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs whitespace-nowrap transition-colors ${isMegaMenuOpen || selectedCategory === "All Categories"
                       ? "bg-slate-900 text-white"
                       : "bg-slate-100 text-slate-800 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   <Menu className="w-3.5 h-3.5" />
                   <span>All Categories</span>
@@ -515,11 +511,10 @@ export default function Navbar({
                   key={category}
                   type="button"
                   onClick={() => setSelectedCategory(category)}
-                  className={`px-3 py-1.5 rounded-lg whitespace-nowrap font-semibold text-xs transition-colors ${
-                    selectedCategory === category
+                  className={`px-3 py-1.5 rounded-lg whitespace-nowrap font-semibold text-xs transition-colors ${selectedCategory === category
                       ? "bg-cyan-50 text-cyan-800 font-bold"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   {category}
                 </button>

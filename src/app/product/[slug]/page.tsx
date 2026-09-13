@@ -93,7 +93,7 @@ export default function ProductPage() {
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between">
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
         <Navbar
           cartCount={cartCount}
           wishlistCount={store.wishlist.length}
@@ -142,7 +142,7 @@ export default function ProductPage() {
   const currentImage = galleryImages[selectedImageIndex] || product.image;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 text-slate-900 md:pb-8 flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-50 pb-24 text-slate-900 md:pb-8 flex flex-col">
       {/* 1. Header */}
       <Navbar
         cartCount={cartCount}

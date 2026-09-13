@@ -9,14 +9,9 @@ import {
   Printer,
   Download,
   ShieldCheck,
-  Building2,
-  Phone,
-  Mail,
   MapPin,
   FileText,
-  CheckCircle2,
   Calendar,
-  CreditCard,
   Truck
 } from "lucide-react";
 
