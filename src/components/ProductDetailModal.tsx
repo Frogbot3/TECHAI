@@ -98,7 +98,7 @@ export default function ProductDetailModal({
                     onError={(e) => {
                       e.currentTarget.src = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80";
                     }}
-                    className="max-h-full max-w-full object-contain transition-all duration-200"
+                    className="max-h-full max-w-full object-contain rounded-xl transition-all duration-200"
                   />
                 </div>
 

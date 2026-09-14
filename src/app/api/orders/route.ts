@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
-import { getSessionFromCookie } from "@/lib/auth";
+import { getSessionFromCookie, CUSTOMER_SESSION_COOKIE, ADMIN_SESSION_COOKIE } from "@/lib/auth";
 import { normalizeCartItem, toClientOrder } from "@/lib/serializers";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
@@ -165,30 +165,96 @@ export async function GET(req: Request) {
     const phone = searchParams.get("phone");
 
     await connectToDatabase();
-    let filter: any = {};
 
-    if (customerId || email || phone) {
-      const orConditions: any[] = [];
-      if (customerId) orConditions.push({ customerId });
-      if (email) orConditions.push({ userEmail: { $regex: `^${email}$`, $options: "i" } }, { "shippingAddress.email": { $regex: `^${email}$`, $options: "i" } });
-      if (phone) orConditions.push({ userPhone: phone }, { "shippingAddress.phone": phone });
-      filter = { $or: orConditions };
-    } else if (query) {
-      filter = {
-        $or: [
-          { orderId: { $regex: query, $options: "i" } },
-          { userPhone: { $regex: query, $options: "i" } },
-          { userEmail: { $regex: query, $options: "i" } },
-          { trackingNumber: { $regex: query, $options: "i" } },
-          { userName: { $regex: query, $options: "i" } },
-        ],
-      };
+    // 1. Check server-side cookies for customer or admin session
+    const customerSession = await getSessionFromCookie(CUSTOMER_SESSION_COOKIE);
+    const adminSession = await getSessionFromCookie(ADMIN_SESSION_COOKIE);
+
+    // If an authenticated admin is making this request, allow full access or admin query
+    if (adminSession?.role === "admin") {
+      let filter: any = {};
+      if (query) {
+        filter = {
+          $or: [
+            { orderId: { $regex: query, $options: "i" } },
+            { userPhone: { $regex: query, $options: "i" } },
+            { userEmail: { $regex: query, $options: "i" } },
+            { trackingNumber: { $regex: query, $options: "i" } },
+            { userName: { $regex: query, $options: "i" } },
+          ],
+        };
+      } else if (customerId || email || phone) {
+        const orConditions: any[] = [];
+        if (customerId) orConditions.push({ customerId });
+        if (email) orConditions.push({ userEmail: { $regex: `^${email}$`, $options: "i" } }, { "shippingAddress.email": { $regex: `^${email}$`, $options: "i" } });
+        if (phone) orConditions.push({ userPhone: phone }, { "shippingAddress.phone": phone });
+        filter = { $or: orConditions };
+      }
+      const orders = await Order.find(filter).sort({ createdAt: -1 }).limit(500);
+      return NextResponse.json({ success: true, count: orders.length, orders: orders.map(toClientOrder) });
     }
 
-    const orders = await Order.find(filter).sort({ createdAt: -1 }).limit(500);
-    const clientOrders = orders.map(toClientOrder);
+    // 2. Identify active customer (either via verified session cookie or validated params)
+    const activeCustomerId = customerSession?.id || customerId;
+    const activeEmail = customerSession?.email || email;
+    const activePhone = customerSession?.phone || phone;
 
-    return NextResponse.json({ success: true, count: clientOrders.length, orders: clientOrders });
+    // Build ownership filter conditions for this individual customer
+    const userConditions: any[] = [];
+    if (activeCustomerId) {
+      userConditions.push({ customerId: activeCustomerId });
+    }
+    if (activeEmail && activeEmail.trim()) {
+      const cleanEmail = activeEmail.trim();
+      userConditions.push(
+        { userEmail: { $regex: `^${cleanEmail}$`, $options: "i" } },
+        { "shippingAddress.email": { $regex: `^${cleanEmail}$`, $options: "i" } }
+      );
+    }
+    if (activePhone && activePhone.trim()) {
+      const cleanPhone = activePhone.trim();
+      userConditions.push(
+        { userPhone: cleanPhone },
+        { "shippingAddress.phone": cleanPhone }
+      );
+    }
+
+    // 3. If customer is identified, return ONLY their individual orders
+    if (userConditions.length > 0) {
+      let filter: any = { $or: userConditions };
+
+      // If they are filtering/searching within their own orders
+      if (query && query.trim()) {
+        const q = query.trim();
+        const searchOr = [
+          { orderId: { $regex: q, $options: "i" } },
+          { trackingNumber: { $regex: q, $options: "i" } },
+          { "items.title": { $regex: q, $options: "i" } },
+        ];
+        filter = { $and: [{ $or: userConditions }, { $or: searchOr }] };
+      }
+
+      const orders = await Order.find(filter).sort({ createdAt: -1 }).limit(200);
+      return NextResponse.json({ success: true, count: orders.length, orders: orders.map(toClientOrder) });
+    }
+
+    // 4. If user is a GUEST (not logged in) with a specific tracking query (e.g. tracking modal)
+    if (query && query.trim()) {
+      const q = query.trim();
+      // Only allow exact or specific Order ID / Tracking Number lookup for guests
+      const guestFilter = {
+        $or: [
+          { orderId: { $regex: `^${q}$`, $options: "i" } },
+          { trackingNumber: { $regex: `^${q}$`, $options: "i" } },
+        ],
+      };
+      const orders = await Order.find(guestFilter).sort({ createdAt: -1 }).limit(10);
+      return NextResponse.json({ success: true, count: orders.length, orders: orders.map(toClientOrder) });
+    }
+
+    // 5. If no customer identity and no specific tracking query, RETURN EMPTY LIST
+    // Never expose other customers' orders to the public!
+    return NextResponse.json({ success: true, count: 0, orders: [] });
   } catch (error) {
     console.error("GET orders route error:", error);
     return NextResponse.json({ success: false, message: (error as Error).message }, { status: 500 });

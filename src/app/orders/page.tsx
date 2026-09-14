@@ -106,33 +106,64 @@ export default function OrdersPage() {
       />
 
       <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-        {/* Back Link */}
-        <div className="flex items-center justify-between">
+        {/* Back Link & Auth Status */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <Link
             href="/"
-            className="text-xs font-black text-slate-600 hover:text-slate-950 flex items-center space-x-1.5 transition-colors bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm"
+            className="text-xs font-black text-slate-600 hover:text-slate-950 flex items-center space-x-1.5 transition-colors bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs self-start"
           >
             <ArrowLeft className="w-4 h-4 text-cyan-600" />
             <span>Back to Storefront</span>
           </Link>
 
-          {store.user && (
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+          {store.user ? (
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5 self-start sm:self-auto">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Signed in as {store.user.name || store.user.phone}</span>
+              <span>Personal Account: {store.user.name || store.user.email || store.user.phone}</span>
             </span>
+          ) : (
+            <button
+              onClick={() => setIsAuthOpen(true)}
+              className="text-xs font-extrabold text-cyan-800 bg-cyan-50 hover:bg-cyan-100 px-3.5 py-1.5 rounded-xl border border-cyan-200 flex items-center gap-1.5 transition self-start sm:self-auto cursor-pointer"
+            >
+              <span>Sign In to Sync Orders</span>
+              <ChevronRight className="w-3.5 h-3.5 text-cyan-600" />
+            </button>
           )}
         </div>
+
+        {/* Guest Banner if not signed in */}
+        {!store.user && (
+          <div className="bg-gradient-to-r from-cyan-50 via-sky-50 to-white border border-cyan-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-cyan-100 border border-cyan-300 flex items-center justify-center text-cyan-800 flex-shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-extrabold text-slate-950 text-xs sm:text-sm">Sign in to view your verified orders</p>
+                <p className="text-slate-600 text-[11px] mt-0.5">Orders are tied to your personal phone/email. Sign in to view and track all your purchases.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsAuthOpen(true)}
+              className="px-4 py-2 bg-slate-900 hover:bg-cyan-600 text-white font-extrabold rounded-xl transition shadow-xs whitespace-nowrap cursor-pointer text-xs"
+            >
+              Sign In / Register
+            </button>
+          </div>
+        )}
 
         {/* Header Title & Metrics */}
         <div className="space-y-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight flex items-center gap-2">
               <Package className="w-7 h-7 text-cyan-600" />
-              <span>My Orders & Shipments</span>
+              <span>{store.user ? "My Orders & Shipments" : "Guest Orders & Tracking"}</span>
             </h1>
             <p className="text-xs text-slate-500 mt-1">
-              View all your placed orders, download tax invoices, write verified reviews, and track live courier shipments.
+              {store.user
+                ? "View your placed orders, download tax invoices, write verified reviews, and track live courier shipments."
+                : "Tracking and orders placed in this browser. Sign in to sync your verified account history."}
             </p>
           </div>
 

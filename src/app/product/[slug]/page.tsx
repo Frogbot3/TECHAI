@@ -210,7 +210,7 @@ export default function ProductPage() {
               <img
                 src={currentImage}
                 alt={product.title}
-                className="h-full w-full object-contain transition-all duration-300"
+                className="h-full w-full object-contain rounded-xl transition-all duration-300"
               />
             </div>
 

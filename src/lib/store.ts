@@ -70,10 +70,16 @@ export function useTechAiStore() {
   };
 
   const refreshOrders = async (query?: string, userCreds?: { id?: string; email?: string; phone?: string }) => {
-    const params = new URLSearchParams();
-    if (query) params.set("query", query);
-
     const currentUser = userCreds || user;
+
+    // If no user is authenticated and no search query is specified, do not query all orders
+    if (!currentUser && !query?.trim()) {
+      return orders;
+    }
+
+    const params = new URLSearchParams();
+    if (query?.trim()) params.set("query", query.trim());
+
     if (currentUser?.id) params.set("customerId", currentUser.id);
     if (currentUser?.email) params.set("email", currentUser.email);
     if (currentUser?.phone) params.set("phone", currentUser.phone);
@@ -82,7 +88,7 @@ export function useTechAiStore() {
     try {
       const response = await fetch(url);
       const data = await response.json();
-      if (data.success && data.orders) {
+      if (data.success && Array.isArray(data.orders)) {
         const normalized = data.orders.map(toClientOrder);
         updateOrders(normalized);
         return normalized;
@@ -112,9 +118,20 @@ export function useTechAiStore() {
   useEffect(() => {
     const loadedProducts = getStorage<Product[]>(PRODUCTS_KEY, INITIAL_PRODUCTS).map(toClientProduct);
     const loadedCart = getStorage<CartItem[]>(CART_KEY, []).map(normalizeCartItem);
-    const loadedOrders = getStorage<Order[]>(ORDERS_KEY, []).map(toClientOrder);
+    const rawOrders = getStorage<Order[]>(ORDERS_KEY, []).map(toClientOrder);
     const loadedWishlist = normalizeWishlist(getStorage<unknown>(WISHLIST_KEY, []));
     const loadedUser = getStorage<User | null>(USER_KEY, null);
+
+    // Sanitize cached orders so a guest never sees other customers' cached orders
+    const loadedOrders = loadedUser
+      ? rawOrders.filter(
+          (o) =>
+            !o.customerId ||
+            o.customerId === loadedUser.id ||
+            (loadedUser.email && o.shippingAddress?.email?.toLowerCase() === loadedUser.email.toLowerCase()) ||
+            (loadedUser.phone && o.shippingAddress?.phone === loadedUser.phone)
+        )
+      : rawOrders.filter((o) => !o.customerId);
 
     setProducts(loadedProducts);
     setCart(loadedCart);
@@ -127,8 +144,6 @@ export function useTechAiStore() {
     if (loadedUser) {
       refreshOrders("", { id: loadedUser.id, email: loadedUser.email, phone: loadedUser.phone });
       refreshWishlist().catch(() => {});
-    } else {
-      refreshOrders().catch(() => {});
     }
     refreshSession().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -144,7 +144,7 @@ export default function CartPage() {
                       <img
                         src={item.product.image}
                         alt={item.product.title}
-                        className="max-h-full max-w-full object-contain"
+                        className="max-h-full max-w-full object-contain rounded-xl"
                       />
                     </Link>
                     <div className="min-w-0 flex-1">
