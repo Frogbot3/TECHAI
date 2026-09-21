@@ -86,8 +86,8 @@ export default function RecentlyViewedSection({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 items-stretch">
-        {viewedProducts.slice(0, 5).map((product) => (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 items-stretch">
+        {viewedProducts.slice(0, 6).map((product) => (
           <ProductCard
             key={`rv-${product.id}`}
             product={product}

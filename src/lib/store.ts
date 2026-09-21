@@ -5,7 +5,7 @@ import { CartItem, Order, OrderStatus, PaymentDetails, PaymentMethod, Product, S
 import { INITIAL_PRODUCTS } from "./data";
 import { normalizeCartItem, toClientOrder, toClientProduct } from "./serializers";
 
-const PRODUCTS_KEY = "techai_products_v2";
+const PRODUCTS_KEY = "techai_products_v4";
 const CART_KEY = "techai_cart_v2";
 const ORDERS_KEY = "techai_orders_v2";
 const USER_KEY = "techai_user_v2";
@@ -116,7 +116,14 @@ export function useTechAiStore() {
   };
 
   useEffect(() => {
-    const loadedProducts = getStorage<Product[]>(PRODUCTS_KEY, INITIAL_PRODUCTS).map(toClientProduct);
+    const storedProducts = getStorage<Product[]>(PRODUCTS_KEY, INITIAL_PRODUCTS).map(toClientProduct);
+    const storedIds = new Set(storedProducts.map((p) => p.id));
+    const missingInitial = INITIAL_PRODUCTS.filter((p) => !storedIds.has(p.id)).map(toClientProduct);
+    const loadedProducts = [...storedProducts, ...missingInitial];
+    if (missingInitial.length > 0) {
+      setStorage(PRODUCTS_KEY, loadedProducts);
+    }
+
     const loadedCart = getStorage<CartItem[]>(CART_KEY, []).map(normalizeCartItem);
     const rawOrders = getStorage<Order[]>(ORDERS_KEY, []).map(toClientOrder);
     const loadedWishlist = normalizeWishlist(getStorage<unknown>(WISHLIST_KEY, []));

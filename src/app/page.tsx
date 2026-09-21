@@ -135,14 +135,14 @@ export default function HomePage() {
     sortBy,
   ]);
 
-  // Section Collections
+  // Section Collections (6 items ensures perfect 2-col mobile, 3-col tablet, 6-col desktop grids with ZERO blank space)
   const bestSellers = useMemo(
-    () => store.products.filter((p) => p.isBestSeller || p.rating >= 4.4).slice(0, 5),
+    () => store.products.filter((p) => p.isBestSeller || p.rating >= 4.4).slice(0, 6),
     [store.products]
   );
 
   const recommendedProducts = useMemo(
-    () => store.products.filter((p) => p.isTrending || p.price > 1000).slice(0, 5),
+    () => store.products.filter((p) => p.isTrending || p.price > 1000).slice(0, 6),
     [store.products]
   );
 
@@ -293,7 +293,7 @@ export default function HomePage() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 items-stretch">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 items-stretch">
                 {bestSellers.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -321,14 +321,14 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setSelectedCategory("All Categories")}
-                  className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-1"
+                  className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-1 cursor-pointer"
                 >
                   <span>Explore Catalog</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 items-stretch">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 items-stretch">
                 {recommendedProducts.map((product) => (
                   <ProductCard
                     key={product.id}

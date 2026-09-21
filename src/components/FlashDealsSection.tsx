@@ -36,7 +36,7 @@ export default function FlashDealsSection({
     return () => clearInterval(timer);
   }, []);
 
-  const dealProducts = products.filter((p) => p.discountPercent >= 40).slice(0, 5);
+  const dealProducts = products.filter((p) => p.discountPercent >= 40).slice(0, 6);
 
   if (dealProducts.length === 0) return null;
 
@@ -63,15 +63,15 @@ export default function FlashDealsSection({
         <button
           type="button"
           onClick={onViewAll}
-          className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-1 self-start sm:self-auto"
+          className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-1 self-start sm:self-auto cursor-pointer"
         >
           <span>View All Deals</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* Grid of Product Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 items-stretch">
+      {/* Grid of Product Cards: Always even rows on phone (2-cols) and desktop (6-cols) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 items-stretch">
         {dealProducts.map((product) => (
           <ProductCard
             key={product.id}

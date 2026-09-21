@@ -45,7 +45,8 @@ interface FirebaseTokenPayload {
 }
 
 /**
- * Verifies a Firebase ID token using Google's public key endpoint.
+ * Verifies a Firebase ID token using Google's public X.509 certificates.
+ * Uses Node.js `crypto` module which correctly handles full X.509 PEM certs.
  * Returns the decoded payload or throws on invalid token.
  */
 async function verifyFirebaseToken(idToken: string): Promise<FirebaseTokenPayload> {
@@ -63,11 +64,11 @@ async function verifyFirebaseToken(idToken: string): Promise<FirebaseTokenPayloa
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp < now) throw new Error("Token expired");
   if (payload.iat > now + 5) throw new Error("Token used before issued");
-  if (payload.aud !== projectId) throw new Error("Token audience mismatch");
+  if (payload.aud !== projectId) throw new Error(`Token audience mismatch: expected ${projectId}`);
   if (!payload.iss?.startsWith("https://securetoken.google.com/")) throw new Error("Invalid token issuer");
   if (!payload.sub) throw new Error("Missing subject");
 
-  // Fetch Google's public keys
+  // Fetch Google's public X.509 certificates
   const certsResp = await fetch(
     "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
     { next: { revalidate: 3600 } }
@@ -76,28 +77,30 @@ async function verifyFirebaseToken(idToken: string): Promise<FirebaseTokenPayloa
   const certs = await certsResp.json() as Record<string, string>;
 
   const certPem = certs[header.kid];
-  if (!certPem) throw new Error("Unknown key ID in token");
+  if (!certPem) throw new Error(`Unknown key ID in token: ${header.kid}`);
 
-  // Import the certificate as a Web Crypto key
-  const pemBody = certPem
-    .replace(/-----BEGIN CERTIFICATE-----/g, "")
-    .replace(/-----END CERTIFICATE-----/g, "")
-    .replace(/\s/g, "");
-  const derBuffer = Buffer.from(pemBody, "base64");
+  // ── FIX: Use Node.js crypto which handles full X.509 PEM certificates ────────
+  // crypto.subtle.importKey("spki") requires raw SubjectPublicKeyInfo DER bytes,
+  // NOT a full X.509 certificate — that mismatch was the "Invalid keyData" error.
+  // Node.js crypto.createPublicKey() natively accepts the full X.509 PEM cert.
+  // ─────────────────────────────────────────────────────────────────────────────
+  const nodeCrypto = await import("node:crypto");
 
-  const cryptoKey = await crypto.subtle.importKey(
-    "spki",
-    derBuffer,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["verify"]
-  );
+  let publicKey: import("node:crypto").KeyObject;
+  try {
+    publicKey = nodeCrypto.createPublicKey(certPem);
+  } catch {
+    throw new Error("Failed to parse Google public certificate");
+  }
 
-  // Build the signed data (header.payload)
-  const signedData = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+  // Build the signed data (header.payload) and verify RS256 signature
+  const signingInput = `${parts[0]}.${parts[1]}`;
   const signature = Buffer.from(parts[2], "base64url");
 
-  const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", cryptoKey, signature, signedData);
+  const verifier = nodeCrypto.createVerify("RSA-SHA256");
+  verifier.update(signingInput);
+
+  const valid = verifier.verify(publicKey, signature);
   if (!valid) throw new Error("Token signature verification failed");
 
   return payload;
