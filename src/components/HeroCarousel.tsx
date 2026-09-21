@@ -24,10 +24,16 @@ interface HeroSlideItem {
   cta: string;
   image: string;
   productRef?: Product;
-  themeGradient?: string;
-  badgeStyle?: string;
+  themeGradient: string;
+  badgeStyle: string;
+  ctaBg: string;
+  ctaHover: string;
+  ctaArrow: string;
+  imgBorder: string;
+  imgBg: string;
 }
 
+// Each slide has a unique soft pastel gradient that matches the product category
 const DEFAULT_HERO_SLIDES: HeroSlideItem[] = [
   {
     id: "default-1",
@@ -41,8 +47,13 @@ const DEFAULT_HERO_SLIDES: HeroSlideItem[] = [
     category: "Electronics",
     cta: "Shop Audio Deals",
     image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=85",
-    themeGradient: "from-sky-50/90 via-cyan-50/50 to-white border-sky-200/90",
-    badgeStyle: "bg-cyan-100 text-cyan-950 border-cyan-300",
+    themeGradient: "from-sky-50 via-cyan-50/60 to-white border-sky-200/80",
+    badgeStyle: "bg-cyan-100 text-cyan-800 border-cyan-300",
+    ctaBg: "bg-cyan-600 hover:bg-cyan-700",
+    ctaHover: "text-cyan-700 hover:text-cyan-800",
+    ctaArrow: "text-cyan-200",
+    imgBorder: "border-sky-200/80",
+    imgBg: "bg-sky-50/50",
   },
   {
     id: "default-2",
@@ -56,8 +67,13 @@ const DEFAULT_HERO_SLIDES: HeroSlideItem[] = [
     category: "Mobiles & Wearables",
     cta: "Explore Smartwatches",
     image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=85",
-    themeGradient: "from-indigo-50/90 via-purple-50/40 to-white border-indigo-200/90",
-    badgeStyle: "bg-indigo-100 text-indigo-950 border-indigo-300",
+    themeGradient: "from-indigo-50 via-violet-50/50 to-white border-indigo-200/80",
+    badgeStyle: "bg-indigo-100 text-indigo-800 border-indigo-300",
+    ctaBg: "bg-indigo-600 hover:bg-indigo-700",
+    ctaHover: "text-indigo-700 hover:text-indigo-800",
+    ctaArrow: "text-indigo-200",
+    imgBorder: "border-indigo-200/80",
+    imgBg: "bg-indigo-50/50",
   },
   {
     id: "default-3",
@@ -71,8 +87,13 @@ const DEFAULT_HERO_SLIDES: HeroSlideItem[] = [
     category: "Computers & Gaming",
     cta: "Upgrade Your Setup",
     image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=85",
-    themeGradient: "from-amber-50/90 via-orange-50/40 to-white border-amber-200/90",
-    badgeStyle: "bg-amber-100 text-amber-950 border-amber-300",
+    themeGradient: "from-amber-50 via-orange-50/40 to-white border-amber-200/80",
+    badgeStyle: "bg-amber-100 text-amber-800 border-amber-300",
+    ctaBg: "bg-amber-600 hover:bg-amber-700",
+    ctaHover: "text-amber-700 hover:text-amber-800",
+    ctaArrow: "text-amber-200",
+    imgBorder: "border-amber-200/80",
+    imgBg: "bg-amber-50/50",
   },
 ];
 
@@ -85,21 +106,23 @@ export default function HeroCarousel({
   const [isPaused, setIsPaused] = useState(false);
   const reduceMotion = useReducedMotion();
 
-  // Derive a soft theme gradient from category name
-  const getCategoryTheme = (category: string): { themeGradient: string; badgeStyle: string } => {
+  // Derive a theme from category name matching product card style
+  const getCategoryTheme = (category: string): Omit<HeroSlideItem, 'id' | 'badge' | 'title' | 'subtitle' | 'priceLabel' | 'price' | 'originalPrice' | 'offer' | 'category' | 'cta' | 'image' | 'productRef'> => {
     const cat = category.toLowerCase();
-    if (cat.includes("fashion") || cat.includes("shoe") || cat.includes("cloth") || cat.includes("apparel"))
-      return { themeGradient: "from-orange-50/90 via-amber-50/40 to-white border-orange-200/90", badgeStyle: "bg-orange-100 text-orange-950 border-orange-300" };
-    if (cat.includes("mobile") || cat.includes("phone") || cat.includes("wearable") || cat.includes("watch"))
-      return { themeGradient: "from-indigo-50/90 via-purple-50/40 to-white border-indigo-200/90", badgeStyle: "bg-indigo-100 text-indigo-950 border-indigo-300" };
+    if (cat.includes("fashion") || cat.includes("shoe") || cat.includes("cloth"))
+      return { themeGradient: "from-rose-50 via-pink-50/50 to-white border-rose-200/80", badgeStyle: "bg-rose-100 text-rose-800 border-rose-300", ctaBg: "bg-rose-600 hover:bg-rose-700", ctaHover: "text-rose-700 hover:text-rose-800", ctaArrow: "text-rose-200", imgBorder: "border-rose-200/80", imgBg: "bg-rose-50/50" };
+    if (cat.includes("mobile") || cat.includes("phone") || cat.includes("wearable"))
+      return { themeGradient: "from-indigo-50 via-violet-50/50 to-white border-indigo-200/80", badgeStyle: "bg-indigo-100 text-indigo-800 border-indigo-300", ctaBg: "bg-indigo-600 hover:bg-indigo-700", ctaHover: "text-indigo-700 hover:text-indigo-800", ctaArrow: "text-indigo-200", imgBorder: "border-indigo-200/80", imgBg: "bg-indigo-50/50" };
     if (cat.includes("gaming") || cat.includes("computer") || cat.includes("laptop"))
-      return { themeGradient: "from-amber-50/90 via-orange-50/40 to-white border-amber-200/90", badgeStyle: "bg-amber-100 text-amber-950 border-amber-300" };
+      return { themeGradient: "from-amber-50 via-orange-50/40 to-white border-amber-200/80", badgeStyle: "bg-amber-100 text-amber-800 border-amber-300", ctaBg: "bg-amber-600 hover:bg-amber-700", ctaHover: "text-amber-700 hover:text-amber-800", ctaArrow: "text-amber-200", imgBorder: "border-amber-200/80", imgBg: "bg-amber-50/50" };
     if (cat.includes("home") || cat.includes("appliance") || cat.includes("kitchen"))
-      return { themeGradient: "from-emerald-50/90 via-teal-50/40 to-white border-emerald-200/90", badgeStyle: "bg-emerald-100 text-emerald-950 border-emerald-300" };
+      return { themeGradient: "from-emerald-50 via-teal-50/40 to-white border-emerald-200/80", badgeStyle: "bg-emerald-100 text-emerald-800 border-emerald-300", ctaBg: "bg-emerald-600 hover:bg-emerald-700", ctaHover: "text-emerald-700 hover:text-emerald-800", ctaArrow: "text-emerald-200", imgBorder: "border-emerald-200/80", imgBg: "bg-emerald-50/50" };
     if (cat.includes("grocery") || cat.includes("food"))
-      return { themeGradient: "from-lime-50/90 via-green-50/40 to-white border-lime-200/90", badgeStyle: "bg-lime-100 text-lime-950 border-lime-300" };
+      return { themeGradient: "from-lime-50 via-green-50/40 to-white border-lime-200/80", badgeStyle: "bg-lime-100 text-lime-800 border-lime-300", ctaBg: "bg-lime-600 hover:bg-lime-700", ctaHover: "text-lime-700 hover:text-lime-800", ctaArrow: "text-lime-200", imgBorder: "border-lime-200/80", imgBg: "bg-lime-50/50" };
+    if (cat.includes("beauty"))
+      return { themeGradient: "from-pink-50 via-fuchsia-50/40 to-white border-pink-200/80", badgeStyle: "bg-pink-100 text-pink-800 border-pink-300", ctaBg: "bg-pink-600 hover:bg-pink-700", ctaHover: "text-pink-700 hover:text-pink-800", ctaArrow: "text-pink-200", imgBorder: "border-pink-200/80", imgBg: "bg-pink-50/50" };
     // Default: electronics / audio
-    return { themeGradient: "from-sky-50/90 via-cyan-50/50 to-white border-sky-200/90", badgeStyle: "bg-cyan-100 text-cyan-950 border-cyan-300" };
+    return { themeGradient: "from-sky-50 via-cyan-50/60 to-white border-sky-200/80", badgeStyle: "bg-cyan-100 text-cyan-800 border-cyan-300", ctaBg: "bg-cyan-600 hover:bg-cyan-700", ctaHover: "text-cyan-700 hover:text-cyan-800", ctaArrow: "text-cyan-200", imgBorder: "border-sky-200/80", imgBg: "bg-sky-50/50" };
   };
 
   // Combine admin featured products with default hero slides
@@ -121,8 +144,7 @@ export default function HeroCarousel({
           cta: "Shop This Product",
           image: p.image || (p.images && p.images[0]) || "",
           productRef: p,
-          themeGradient: theme.themeGradient,
-          badgeStyle: theme.badgeStyle,
+          ...theme,
         };
       });
 
@@ -153,9 +175,9 @@ export default function HeroCarousel({
   return (
     <section className="px-3 sm:px-6 lg:px-8 pt-3 pb-2 font-sans" aria-label="Featured Offers">
       <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-12">
-        {/* Main Hero Banner Box: Clean Light Theme, Vibrant E-Commerce Promotion */}
+        {/* Main Hero Banner — matches product card white/light style with category-colored accents */}
         <div
-          className={`relative min-h-[360px] sm:min-h-[380px] lg:min-h-[400px] overflow-hidden rounded-2xl bg-gradient-to-br ${slide.themeGradient || "from-sky-50 via-cyan-50/50 to-white border-sky-200/90"} border text-slate-900 shadow-xs p-4 sm:p-7 lg:col-span-8 flex flex-col justify-between transition-colors duration-500`}
+          className={`relative min-h-[340px] sm:min-h-[380px] lg:min-h-[400px] overflow-hidden rounded-2xl bg-gradient-to-br ${slide.themeGradient} border text-slate-900 shadow-xs p-4 sm:p-7 lg:col-span-8 flex flex-col justify-between transition-colors duration-500`}
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
           onFocusCapture={() => setIsPaused(true)}
@@ -173,27 +195,27 @@ export default function HeroCarousel({
               transition={{ duration: reduceMotion ? 0.15 : 0.25 }}
               className="grid grid-cols-1 sm:grid-cols-12 items-center gap-4 sm:gap-6 my-auto"
             >
-              {/* Content Column: Typography, Price, CTAs */}
+              {/* Content Column */}
               <div className="order-2 sm:order-1 sm:col-span-7 space-y-2.5 sm:space-y-3">
                 {/* Category/Offer Label */}
                 <div>
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider ${slide.badgeStyle || "bg-cyan-100 text-cyan-950 border-cyan-300"}`}>
-                    <Sparkles className="w-3 h-3 text-cyan-700" />
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider ${slide.badgeStyle}`}>
+                    <Sparkles className="w-3 h-3" />
                     <span>{slide.badge}</span>
                   </span>
                 </div>
 
-                {/* Strong Headline */}
+                {/* Headline */}
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-950 leading-tight tracking-tight line-clamp-2">
                   {slide.title}
                 </h1>
 
-                {/* Short Supporting Text */}
+                {/* Supporting Text */}
                 <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed line-clamp-2">
                   {slide.subtitle}
                 </p>
 
-                {/* Price & Discount Hierarchy */}
+                {/* Price & Discount */}
                 <div className="pt-0.5 flex flex-wrap items-baseline gap-2">
                   <span className="text-xs font-bold text-slate-500">{slide.priceLabel}:</span>
                   <span className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
@@ -210,7 +232,7 @@ export default function HeroCarousel({
                   </span>
                 </div>
 
-                {/* Obvious, Prominent CTAs */}
+                {/* CTAs */}
                 <div className="pt-1.5 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
@@ -221,25 +243,25 @@ export default function HeroCarousel({
                         onExploreCategory(slide.category);
                       }
                     }}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 sm:h-11 px-6 rounded-xl bg-slate-950 hover:bg-cyan-600 text-white font-extrabold text-xs sm:text-sm transition-all shadow-sm active:scale-98 cursor-pointer"
+                    className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 sm:h-11 px-6 rounded-xl ${slide.ctaBg} text-white font-extrabold text-xs sm:text-sm transition-all shadow-sm active:scale-98 cursor-pointer`}
                   >
                     <span>{slide.cta}</span>
-                    <ArrowRight className="w-4 h-4 text-cyan-400" />
+                    <ArrowRight className={`w-4 h-4 ${slide.ctaArrow}`} />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => onExploreCategory(slide.category)}
-                    className="w-full sm:w-auto inline-flex items-center justify-center text-xs sm:text-sm font-bold text-slate-700 hover:text-cyan-700 underline decoration-slate-300 underline-offset-4 transition cursor-pointer py-1"
+                    className={`w-full sm:w-auto inline-flex items-center justify-center text-xs sm:text-sm font-bold ${slide.ctaHover} underline decoration-slate-300 underline-offset-4 transition cursor-pointer py-1`}
                   >
                     <span>Browse {slide.category}</span>
                   </button>
                 </div>
               </div>
 
-              {/* Product Visual Column: Rounded container with rounded image */}
+              {/* Product Visual Column — white card container like product cards */}
               <div className="order-1 sm:order-2 sm:col-span-5 flex items-center justify-center">
-                <div className="relative w-36 h-36 sm:w-48 sm:h-48 lg:w-56 lg:h-56 rounded-2xl bg-white border border-slate-200/90 shadow-sm p-3 sm:p-4 flex items-center justify-center overflow-hidden group">
+                <div className={`relative w-36 h-36 sm:w-48 sm:h-48 lg:w-56 lg:h-56 rounded-2xl bg-white ${slide.imgBorder} border shadow-sm p-3 sm:p-4 flex items-center justify-center overflow-hidden group`}>
                   <img
                     src={slide.image}
                     alt={slide.title}
@@ -294,7 +316,7 @@ export default function HeroCarousel({
           </div>
         </div>
 
-        {/* Right Column: Companion Promotional Deal Cards (4 cols on lg) */}
+        {/* Right Column: Companion Deal Cards — matches product card white style */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3.5 lg:col-span-4">
           {/* Deal Card 1: Mobiles & Wearables */}
           <button
@@ -303,14 +325,14 @@ export default function HeroCarousel({
             className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-200/90 text-left shadow-xs hover:border-slate-300 hover:shadow-md transition-all cursor-pointer group"
           >
             <div className="space-y-1 max-w-[175px]">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
                 SMART WATCHES
               </span>
               <h2 className="text-sm font-extrabold text-slate-950 leading-tight">
                 AMOLED Calling Watches
               </h2>
-              <p className="text-xs font-semibold text-slate-700">Up to 64% Off</p>
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 group-hover:text-slate-900 pt-0.5">
+              <p className="text-xs font-semibold text-slate-600">Up to 64% Off</p>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 group-hover:text-indigo-800 pt-0.5">
                 <span>View Deals</span>
                 <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
               </span>
@@ -332,14 +354,14 @@ export default function HeroCarousel({
             className="flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-200/90 text-left shadow-xs hover:border-slate-300 hover:shadow-md transition-all cursor-pointer group"
           >
             <div className="space-y-1 max-w-[175px]">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                 GAMING & TECH
               </span>
               <h2 className="text-sm font-extrabold text-slate-950 leading-tight">
                 Keyboards & Gear
               </h2>
-              <p className="text-xs font-semibold text-slate-700">Starting from ₹499</p>
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 group-hover:text-slate-900 pt-0.5">
+              <p className="text-xs font-semibold text-slate-600">Starting from ₹499</p>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 group-hover:text-amber-800 pt-0.5">
                 <span>Shop Gaming</span>
                 <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
               </span>
