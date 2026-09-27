@@ -91,6 +91,7 @@ export function toClientOrder(value: any): Order {
   const order = toPlain(value);
   return {
     id: order.orderId || order.id || order._id?.toString() || `TECHAI-ORD-${Date.now()}`,
+    checkoutId: order.checkoutId || undefined,
     customerId: order.customerId || undefined,
     items: Array.isArray(order.items) ? order.items.map(normalizeCartItem) : [],
     shippingAddress: {
@@ -110,6 +111,9 @@ export function toClientOrder(value: any): Order {
     paymentMethod: order.paymentMethod || "COD",
     paymentStatus: order.paymentStatus || "Pending",
     paymentDetails: order.paymentDetails || {},
+    razorpayOrderId: order.razorpayOrderId || undefined,
+    razorpayPaymentId: order.razorpayPaymentId || undefined,
+    razorpaySignature: order.razorpaySignature || undefined,
     status: order.status || "Placed",
     trackingNumber: order.trackingNumber || "",
     courierName: order.courierName || "Tech AI Logistics",

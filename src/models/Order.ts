@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IOrder extends Document {
   orderId: string;
+  checkoutId?: string;
   customerId?: string;
   userPhone: string;
   userEmail?: string;
@@ -44,6 +45,9 @@ export interface IOrder extends Document {
     bankName?: string;
     paymentNote?: string;
   };
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
   status: "Placed" | "Processing" | "Shipped" | "Out for Delivery" | "Delivered";
   trackingNumber: string;
   courierName: string;
@@ -60,6 +64,7 @@ export interface IOrder extends Document {
 const OrderSchema = new Schema<IOrder>(
   {
     orderId: { type: String, required: true, unique: true, index: true },
+    checkoutId: { type: String, default: "", index: true },
     customerId: { type: String, default: "", index: true },
     userPhone: { type: String, default: "", index: true },
     userEmail: { type: String, default: "", index: true },
@@ -112,6 +117,9 @@ const OrderSchema = new Schema<IOrder>(
       bankName: { type: String, default: "" },
       paymentNote: { type: String, default: "" },
     },
+    razorpayOrderId: { type: String, default: "", index: true },
+    razorpayPaymentId: { type: String, default: "" },
+    razorpaySignature: { type: String, default: "" },
     status: {
       type: String,
       enum: ["Placed", "Processing", "Shipped", "Out for Delivery", "Delivered"],

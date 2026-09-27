@@ -2,14 +2,15 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getSessionFromCookie, CUSTOMER_SESSION_COOKIE, ADMIN_SESSION_COOKIE } from "@/lib/auth";
-import { normalizeCartItem, toClientOrder } from "@/lib/serializers";
+import { toClientOrder } from "@/lib/serializers";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import User from "@/models/User";
 import { CartItem } from "@/lib/types";
+import { randomUUID } from "crypto";
 
-const createOrderId = () => `TECHAI-ORD-${Math.floor(100000 + Math.random() * 900000)}`;
-const createTrackingNumber = () => `TA-${Math.floor(10000000 + Math.random() * 90000000)}`;
+const createOrderId = () => `TECHAI-ORD-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
+const createTrackingNumber = () => `TA-${randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
 
 const buildProductQuery = (id: string) => {
   if (mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === id) {
@@ -18,10 +19,22 @@ const buildProductQuery = (id: string) => {
   return { productId: id };
 };
 
+const normalizeProductTitle = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
 export async function POST(req: Request) {
+  let decrementedProducts: { id: string; quantity: number }[] = [];
+
   try {
     const body = await req.json();
-    const { items, shippingAddress, totalAmount, discountAmount, shippingFee, finalAmount, paymentMethod, paymentDetails } = body;
+    const {
+      items,
+      shippingAddress,
+      paymentMethod = "COD",
+      discountCode,
+      deliveryType = "standard",
+      checkoutId,
+    } = body;
 
     if (!items || items.length === 0 || !shippingAddress) {
       return NextResponse.json({ success: false, message: "Cart items and delivery address are required." }, { status: 400 });
@@ -31,48 +44,134 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Complete delivery address is required." }, { status: 400 });
     }
 
+    if (!["UPI", "Card", "NetBanking", "COD"].includes(paymentMethod)) {
+      return NextResponse.json({ success: false, message: "Unsupported payment method." }, { status: 400 });
+    }
+
+    if (!["standard", "express"].includes(deliveryType)) {
+      return NextResponse.json({ success: false, message: "Unsupported delivery option." }, { status: 400 });
+    }
+
     const session = await getSessionFromCookie();
-    const normalizedItems = items.map(normalizeCartItem);
-    const orderId = createOrderId();
-    const trackingNumber = createTrackingNumber();
+    const safeCheckoutId = typeof checkoutId === "string" ? checkoutId.trim().slice(0, 128) : "";
     const customerName = session?.name || shippingAddress.fullName;
     const customerEmail = session?.email || shippingAddress.email || "";
     const customerPhone = shippingAddress.phone || session?.phone || "";
-    const safePaymentDetails = {
-      provider: paymentMethod === "COD" ? "COD" : "Manual",
-      gatewayStatus: paymentMethod === "COD" ? "Cash collection pending" : "Payment gateway completed",
-      transactionId: paymentDetails?.transactionId || `TXN-${Date.now()}`,
-      upiId: paymentMethod === "UPI" ? paymentDetails?.upiId || "techai@upi" : "",
-      cardLast4: paymentMethod === "Card" ? paymentDetails?.cardLast4 || "8901" : "",
-      cardHolder: paymentMethod === "Card" ? paymentDetails?.cardHolder || customerName : "",
-      bankName: paymentMethod === "NetBanking" ? paymentDetails?.bankName || "HDFC Bank" : "",
-      paymentNote: paymentDetails?.paymentNote || "",
-    };
 
     await connectToDatabase();
 
-    // Check stock safely for all items
-    for (const item of normalizedItems) {
-      const prodId = item.product.id;
-      const product = await Product.findOne(buildProductQuery(prodId));
-      if (product && Number(product.stock) < item.quantity) {
+    // The checkout key makes a refresh or a repeated request return the same pending order.
+    if (safeCheckoutId) {
+      const ownerConditions = session?.id
+        ? { customerId: session.id }
+        : customerEmail
+        ? { userEmail: customerEmail }
+        : { userPhone: customerPhone };
+      const existingOrder = await Order.findOne({ checkoutId: safeCheckoutId, ...ownerConditions });
+      if (existingOrder) {
+        return NextResponse.json({
+          success: true,
+          message: "Existing checkout order resumed.",
+          order: toClientOrder(existingOrder),
+        });
+      }
+    }
+
+    const requestedItems = new Map<string, { quantity: number; title?: string; selectedColor?: string; selectedSize?: string }>();
+    for (const item of items) {
+      const productId = String(item?.product?.id || item?.productId || item?.id || "").trim();
+      const productTitle = typeof item?.product?.title === "string" ? item.product.title.trim() : "";
+      const quantity = Number(item?.quantity);
+      if (!productId || !Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+        return NextResponse.json({ success: false, message: "Invalid cart item or quantity." }, { status: 400 });
+      }
+      const previous = requestedItems.get(productId);
+      requestedItems.set(productId, {
+        quantity: (previous?.quantity || 0) + quantity,
+        title: previous?.title || productTitle,
+        selectedColor: item?.selectedColor || previous?.selectedColor,
+        selectedSize: item?.selectedSize || previous?.selectedSize,
+      });
+    }
+
+    const trustedItems: CartItem[] = [];
+    for (const [productId, requested] of requestedItems) {
+      // A cached cart can contain an older productId. Resolve that legacy case
+      // by exact title, while still taking every price and stock value from MongoDB.
+      let product = await Product.findOne(buildProductQuery(productId));
+      if (!product && requested.title) {
+        product = await Product.findOne({ title: requested.title });
+      }
+      if (!product && requested.title) {
+        const normalizedTitle = normalizeProductTitle(requested.title);
+        const candidates = await Product.find({}, { title: 1 });
+        const matchingCandidate = candidates.find(
+          (candidate) => normalizeProductTitle(candidate.title) === normalizedTitle
+        );
+        product = matchingCandidate ? await Product.findById(matchingCandidate._id) : null;
+      }
+      if (!product) {
+        const label = requested.title || productId;
+        return NextResponse.json(
+          { success: false, message: `${label.slice(0, 100)} is no longer available in our catalog. Remove it and add the current product again.` },
+          { status: 409 }
+        );
+      }
+      if (Number(product.stock) < requested.quantity) {
         return NextResponse.json(
           { success: false, message: `${product.title} has only ${product.stock} unit(s) left.` },
           { status: 409 }
         );
       }
+
+      trustedItems.push({
+        product: {
+          id: product.productId,
+          title: product.title,
+          brand: product.brand,
+          category: product.category,
+          price: Number(product.price),
+          originalPrice: Number(product.originalPrice),
+          discountPercent: Number(product.discountPercent || 0),
+          rating: Number(product.rating || 0),
+          reviewCount: Number(product.reviewCount || 0),
+          image: product.image,
+          images: product.images,
+          stock: Number(product.stock),
+          description: product.description,
+          features: product.features || [],
+          specs: product.specs instanceof Map ? Object.fromEntries(product.specs.entries()) : product.specs || {},
+        },
+        quantity: requested.quantity,
+        selectedColor: requested.selectedColor,
+        selectedSize: requested.selectedSize,
+      });
     }
 
-    // Deduct stock safely
-    for (const item of normalizedItems) {
-      const prodId = item.product.id;
-      await Product.findOneAndUpdate(
-        buildProductQuery(prodId),
-        { $inc: { stock: -item.quantity } }
+    const subtotal = trustedItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    const discountAmount = discountCode === "TECHAI10" ? Math.round(subtotal * 0.1) : 0;
+    const shippingFee = deliveryType === "express" ? 99 : subtotal > 499 ? 0 : 49;
+    const finalAmount = Math.max(0, subtotal - discountAmount + shippingFee);
+    if (finalAmount <= 0) {
+      return NextResponse.json({ success: false, message: "The order amount must be greater than zero." }, { status: 400 });
+    }
+
+    // Reserve stock using the trusted database quantity. Roll back reservations if creation fails.
+    for (const item of trustedItems) {
+      const updatedProduct = await Product.findOneAndUpdate(
+        { $and: [buildProductQuery(item.product.id), { stock: { $gte: item.quantity } }] },
+        { $inc: { stock: -item.quantity } },
+        { new: true }
       );
+      if (!updatedProduct) {
+        throw new Error(`${item.product.title} is no longer available in the requested quantity.`);
+      }
+      decrementedProducts.push({ id: item.product.id, quantity: item.quantity });
     }
 
-    const formattedItems = normalizedItems.map((item: CartItem) => ({
+    const orderId = createOrderId();
+    const trackingNumber = createTrackingNumber();
+    const formattedItems = trustedItems.map((item: CartItem) => ({
       productId: item.product.id,
       title: item.product.title,
       brand: item.product.brand,
@@ -102,13 +201,18 @@ export async function POST(req: Request) {
         pincode: shippingAddress.pincode,
         landmark: shippingAddress.landmark || "",
       },
-      totalAmount: Number(totalAmount || 0),
-      discountAmount: Number(discountAmount || 0),
-      shippingFee: Number(shippingFee || 0),
-      finalAmount: Number(finalAmount || 0),
-      paymentMethod: paymentMethod || "COD",
-      paymentStatus: paymentMethod === "COD" ? "Pending" : "Paid",
-      paymentDetails: safePaymentDetails,
+      checkoutId: safeCheckoutId,
+      totalAmount: subtotal,
+      discountAmount,
+      shippingFee,
+      finalAmount,
+      paymentMethod,
+      paymentStatus: "Pending",
+      paymentDetails: {
+        provider: paymentMethod === "COD" ? "COD" : "Razorpay",
+        gatewayStatus: paymentMethod === "COD" ? "Cash collection pending" : "Awaiting Razorpay checkout",
+        paymentNote: paymentMethod === "COD" ? "Cash on delivery" : "Payment must be verified by Razorpay",
+      },
       status: "Placed",
       trackingNumber,
       courierName: "Tech AI Logistics",
@@ -117,7 +221,7 @@ export async function POST(req: Request) {
         {
           status: "Placed",
           timestamp: new Date(),
-          note: `Order ${orderId} placed successfully.`,
+          note: `Order ${orderId} created and awaiting payment confirmation.`,
         },
       ],
     });
@@ -145,12 +249,16 @@ export async function POST(req: Request) {
       ).catch(() => null);
     }
 
+    decrementedProducts = [];
     return NextResponse.json({
       success: true,
       message: "Order successfully saved to MongoDB.",
       order: toClientOrder(newOrder),
     });
   } catch (error) {
+    for (const product of decrementedProducts) {
+      await Product.findOneAndUpdate(buildProductQuery(product.id), { $inc: { stock: product.quantity } }).catch(() => null);
+    }
     console.error("Order creation POST error:", error);
     return NextResponse.json({ success: false, message: (error as Error).message }, { status: 500 });
   }

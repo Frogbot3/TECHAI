@@ -310,72 +310,34 @@ export function useTechAiStore() {
     shippingAddress: ShippingAddress,
     paymentMethod: PaymentMethod,
     discountCode?: string,
-    paymentDetails?: PaymentDetails
+    paymentDetails?: PaymentDetails,
+    checkoutId?: string,
+    deliveryType: "standard" | "express" = "standard"
   ): Promise<Order> => {
-    const totalAmount = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    const discountAmount = discountCode === "TECHAI10" ? Math.round(totalAmount * 0.1) : 0;
-    const shippingFee = totalAmount > 499 ? 0 : 49;
-    const finalAmount = totalAmount - discountAmount + shippingFee;
-
-    const fallbackOrder: Order = {
-      id: `TECHAI-ORD-${Math.floor(100000 + Math.random() * 900000)}`,
-      customerId: user?.id,
-      items: [...cart],
-      shippingAddress,
-      totalAmount,
-      discountAmount,
-      shippingFee,
-      finalAmount,
-      paymentMethod,
-      paymentStatus: paymentMethod === "COD" ? "Pending" : "Paid",
-      paymentDetails,
-      status: "Placed",
-      trackingNumber: `TA-${Math.floor(10000000 + Math.random() * 90000000)}`,
-      courierName: "Tech AI Logistics",
-      estimatedDelivery: "3-5 business days",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      statusHistory: [
-        {
-          status: "Placed",
-          timestamp: new Date().toISOString(),
-          note: "Order was placed and is awaiting confirmation.",
-        },
-      ],
-    };
-
-    const updatedProducts = products.map((p) => {
-      const orderedItem = cart.find((ci) => ci.product.id === p.id);
-      return orderedItem ? { ...p, stock: Math.max(0, p.stock - orderedItem.quantity) } : p;
+    const response = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: cart,
+        shippingAddress,
+        paymentMethod,
+        discountCode,
+        deliveryType,
+        checkoutId,
+        paymentDetails,
+      }),
     });
-    updateProducts(updatedProducts);
-
-    let savedOrder = fallbackOrder;
-    try {
-      const response = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: cart,
-          shippingAddress,
-          totalAmount,
-          discountAmount,
-          shippingFee,
-          finalAmount,
-          paymentMethod,
-          paymentDetails,
-        }),
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message || "Order creation failed");
-      if (data.order) savedOrder = toClientOrder(data.order);
-    } catch (err) {
-      console.error("Order creation error:", err);
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.success || !data.order) {
+      throw new Error(data?.message || "Order creation failed. Please try again.");
     }
 
-    const updatedOrders = [savedOrder, ...orders];
+    const savedOrder = toClientOrder(data.order);
+    const updatedOrders = [savedOrder, ...orders.filter((order) => order.id !== savedOrder.id)];
     updateOrders(updatedOrders);
-    clearCart();
+
+    // Online orders keep the cart until the server verifies Razorpay success.
+    if (paymentMethod === "COD") clearCart();
     return savedOrder;
   };
 

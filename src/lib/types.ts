@@ -73,6 +73,7 @@ export interface PaymentDetails {
 
 export interface Order {
   id: string;
+  checkoutId?: string;
   customerId?: string;
   items: CartItem[];
   shippingAddress: ShippingAddress;
@@ -83,6 +84,9 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   paymentDetails?: PaymentDetails;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
   status: OrderStatus;
   trackingNumber: string;
   courierName: string;

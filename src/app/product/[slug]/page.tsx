@@ -521,6 +521,10 @@ export default function ProductPage() {
         user={store.user}
         onClose={() => setIsCheckoutOpen(false)}
         onCreateOrder={store.createOrder}
+        onPaymentSuccess={async () => {
+          store.clearCart();
+          await store.refreshOrders();
+        }}
         onOpenOrderTracking={() => router.push("/orders")}
       />
 

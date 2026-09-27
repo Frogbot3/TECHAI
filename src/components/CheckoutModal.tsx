@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import { CartItem, ShippingAddress, Order } from "@/lib/types";
+import { loadRazorpayScript } from "@/lib/razorpay-client";
 import {
   X,
   MapPin,
@@ -40,8 +41,11 @@ interface CheckoutModalProps {
     shippingAddress: ShippingAddress,
     paymentMethod: Order["paymentMethod"],
     discountCode?: string,
-    paymentDetails?: any
+    paymentDetails?: any,
+    checkoutId?: string,
+    deliveryType?: "standard" | "express"
   ) => Promise<Order> | Order;
+  onPaymentSuccess: () => Promise<void> | void;
   onOpenOrderTracking: (orderId: string) => void;
 }
 
@@ -70,6 +74,7 @@ export default function CheckoutModal({
   user,
   onClose,
   onCreateOrder,
+  onPaymentSuccess,
   onOpenOrderTracking
 }: CheckoutModalProps) {
   const [step, setStep] = useState<"ADDRESS" | "PAYMENT" | "PROCESSING" | "SUCCESS">("ADDRESS");
@@ -97,6 +102,11 @@ export default function CheckoutModal({
   const [upiVpa, setUpiVpa] = useState("rahul@okaxis");
   const [selectedBank, setSelectedBank] = useState("HDFC");
   const [validationError, setValidationError] = useState("");
+  const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
+  const [pendingPaymentResponse, setPendingPaymentResponse] = useState<RazorpaySuccessResponse | null>(null);
+  const checkoutIdRef = useRef("");
+  const cartSignature = cart.map((item) => `${item.product.id}:${item.quantity}`).sort().join("|");
+  const checkoutStorageKey = `techai-checkout-id:${cartSignature}`;
 
   // Sync real user profile details dynamically
   useEffect(() => {
@@ -115,6 +125,14 @@ export default function CheckoutModal({
       if (user.name) setCardHolder(user.name);
     }
   }, [user, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !cartSignature || typeof window === "undefined") return;
+    const existingCheckoutId = window.sessionStorage.getItem(checkoutStorageKey);
+    const checkoutId = existingCheckoutId || (window.crypto?.randomUUID?.() || `checkout-${Date.now()}`);
+    if (!existingCheckoutId) window.sessionStorage.setItem(checkoutStorageKey, checkoutId);
+    checkoutIdRef.current = checkoutId;
+  }, [isOpen, cartSignature, checkoutStorageKey]);
 
   if (!isOpen) return null;
 
@@ -175,36 +193,149 @@ export default function CheckoutModal({
     setStep("PAYMENT");
   };
 
+  const showSuccess = (order: Order) => {
+    setPlacedOrder(order);
+    setPendingOrder(null);
+    setPendingPaymentResponse(null);
+    setStep("SUCCESS");
+    try {
+      confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+    } catch {
+      // Confetti is optional feedback.
+    }
+  };
+
+  const verifyPayment = async (order: Order, response: RazorpaySuccessResponse) => {
+    const verifyResponse = await fetch("/api/payment/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: order.id,
+        razorpayPaymentId: response.razorpay_payment_id,
+        razorpayOrderId: response.razorpay_order_id,
+        razorpaySignature: response.razorpay_signature,
+      }),
+    });
+    const verifyData = await verifyResponse.json().catch(() => null);
+    if (!verifyResponse.ok || !verifyData?.success) {
+      throw new Error(verifyData?.message || "Payment could not be verified.");
+    }
+
+    showSuccess({
+      ...order,
+      paymentStatus: "Paid",
+      paymentDetails: {
+        ...(order.paymentDetails || {}),
+        provider: "Razorpay",
+        gatewayStatus: "Payment verified",
+        transactionId: response.razorpay_payment_id,
+      },
+    });
+    if (typeof window !== "undefined") window.sessionStorage.removeItem(checkoutStorageKey);
+    try {
+      await onPaymentSuccess();
+    } catch {
+      // Payment is already verified; a refresh can reconcile local order state.
+    }
+  };
+
   const handlePaymentSubmit = async () => {
+    if (step === "PROCESSING") return;
+    setValidationError("");
     setStep("PROCESSING");
 
-    const paymentDetails = {
-      provider: paymentMethod === "UPI" ? "UPI" : paymentMethod === "Card" ? "Stripe" : "Manual",
-      gatewayStatus: "Payment confirmed successfully",
-      transactionId: `TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
-      upiId: paymentMethod === "UPI" ? upiVpa : "",
-      cardLast4: paymentMethod === "Card" ? cardNumber.replace(/\s/g, "").slice(-4) : "",
-      cardHolder: paymentMethod === "Card" ? (cardHolder || address.fullName) : "",
-      bankName: paymentMethod === "NetBanking" ? selectedBank : "",
-      paymentNote: paymentMethod === "COD" ? "Cash / UPI on arrival" : "Online verified instant payment",
-    };
-
     try {
-      const order = await Promise.resolve(onCreateOrder(address, paymentMethod, appliedCoupon, paymentDetails));
-      setPlacedOrder(order);
-      setStep("SUCCESS");
+      const order = pendingOrder || await Promise.resolve(
+        onCreateOrder(
+          address,
+          paymentMethod,
+          appliedCoupon || undefined,
+          { provider: paymentMethod === "COD" ? "COD" : "Razorpay" },
+          checkoutIdRef.current,
+          deliveryType
+        )
+      );
+      if (!pendingOrder) setPendingOrder(order);
 
-      try {
-        confetti({
-          particleCount: 120,
-          spread: 80,
-          origin: { y: 0.6 }
-        });
-      } catch {
-        // Confetti optional
+      if (paymentMethod === "COD") {
+        showSuccess(order);
+        if (typeof window !== "undefined") window.sessionStorage.removeItem(checkoutStorageKey);
+        return;
       }
-    } catch {
-      alert("Unable to complete your order. Please check your connection and try again.");
+
+      if (pendingPaymentResponse) {
+        await verifyPayment(order, pendingPaymentResponse);
+        return;
+      }
+
+      const createPaymentResponse = await fetch("/api/payment/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const paymentData = await createPaymentResponse.json().catch(() => null);
+      if (!createPaymentResponse.ok || !paymentData?.success) {
+        throw new Error(paymentData?.message || "Unable to start Razorpay checkout.");
+      }
+
+      if (!(await loadRazorpayScript()) || !window.Razorpay) {
+        throw new Error("Razorpay Checkout could not be loaded. Check your connection and try again.");
+      }
+
+      let paymentFlowFinished = false;
+      const razorpay = new window.Razorpay({
+        key: paymentData.keyId,
+        amount: paymentData.amount,
+        currency: paymentData.currency,
+        name: "TECH AI",
+        description: `Payment for ${order.id}`,
+        order_id: paymentData.razorpayOrderId,
+        handler: async (response) => {
+          paymentFlowFinished = true;
+          setPendingPaymentResponse(response);
+          try {
+            await verifyPayment(order, response);
+          } catch (error) {
+            setValidationError((error as Error).message || "Payment was received but could not be verified. Retry confirmation.");
+            setStep("PAYMENT");
+          }
+        },
+        prefill: {
+          name: address.fullName || user?.name || "",
+          email: address.email || user?.email || "",
+          contact: address.phone || user?.phone || "",
+        },
+        notes: { orderId: order.id },
+        theme: { color: "#0891b2" },
+        modal: {
+          confirm_close: true,
+          ondismiss: () => {
+            if (paymentFlowFinished) return;
+            setValidationError("Payment was cancelled. Your order is still pending and you can retry.");
+            setStep("PAYMENT");
+          },
+        },
+      });
+
+      razorpay.on("payment.failed", async (response) => {
+        if (paymentFlowFinished) return;
+        paymentFlowFinished = true;
+        await fetch("/api/payment/failed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: order.id,
+            reason: response.error?.description || response.error?.reason || "Razorpay payment failed",
+          }),
+        }).catch(() => null);
+        setPendingPaymentResponse(null);
+        setValidationError("Payment failed. Your cart is unchanged; you can retry securely.");
+        setStep("PAYMENT");
+      });
+
+      razorpay.open();
+    } catch (error) {
+      setValidationError((error as Error).message || "Unable to start payment. Please try again.");
       setStep("PAYMENT");
     }
   };
@@ -537,6 +668,12 @@ export default function CheckoutModal({
                   <span className="text-[11px] font-bold text-slate-500">Payable: ₹{finalTotal.toLocaleString("en-IN")}</span>
                 </div>
 
+                {validationError && (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800">
+                    {validationError}
+                  </div>
+                )}
+
                 {/* 4 Clean Payment Options Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {/* UPI */}
@@ -608,9 +745,16 @@ export default function CheckoutModal({
                   </button>
                 </div>
 
+                {paymentMethod !== "COD" && (
+                  <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-xs text-cyan-900">
+                    <p className="font-extrabold">Secure Razorpay checkout</p>
+                    <p className="mt-1 text-cyan-800">Your selected method will open in Razorpay. Card, UPI, net banking and other available methods are handled securely there.</p>
+                  </div>
+                )}
+
                 {/* --- 1. UPI DETAILS --- */}
                 {paymentMethod === "UPI" && (
-                  <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-4">
+                  <div hidden className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
                       {/* Interactive QR code */}
                       <div className="sm:col-span-4 flex flex-col items-center justify-center bg-white p-3 rounded-xl border border-slate-200 text-center">
@@ -664,7 +808,7 @@ export default function CheckoutModal({
 
                 {/* --- 2. CARD WITH LIVE INTERACTIVE PREVIEW --- */}
                 {paymentMethod === "Card" && (
-                  <div className="space-y-4">
+                  <div hidden className="space-y-4">
                     {/* Live Virtual Card Preview */}
                     <div className="bg-gradient-to-tr from-slate-950 via-slate-900 to-cyan-950 text-white p-5 rounded-2xl shadow-xl border border-slate-800 space-y-4 relative overflow-hidden">
                       <div className="absolute right-0 top-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl" />
@@ -743,7 +887,7 @@ export default function CheckoutModal({
 
                 {/* --- 3. NET BANKING --- */}
                 {paymentMethod === "NetBanking" && (
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                  <div hidden className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
                     <label className="text-xs font-extrabold text-slate-800 block">Select Your Bank</label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {TOP_BANKS.map((bank) => (
@@ -844,6 +988,12 @@ export default function CheckoutModal({
                   <div className="flex justify-between">
                     <span className="text-slate-500">Tracking Number:</span>
                     <span className="font-mono font-bold text-slate-800">{placedOrder.trackingNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Payment Status:</span>
+                    <span className={placedOrder.paymentStatus === "Paid" ? "font-black text-emerald-600" : "font-black text-amber-600"}>
+                      {placedOrder.paymentStatus}
+                    </span>
                   </div>
                 </div>
 

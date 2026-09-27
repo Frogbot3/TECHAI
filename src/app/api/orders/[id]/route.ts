@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
+import { ADMIN_SESSION_COOKIE, getSessionFromCookie } from "@/lib/auth";
 import { toClientOrder } from "@/lib/serializers";
 import Order from "@/models/Order";
 
@@ -33,11 +34,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { id } = await params;
     const { status, courierName, trackingNumber, note, paymentStatus } = await req.json();
 
+    const adminSession = await getSessionFromCookie(ADMIN_SESSION_COOKIE);
+    if (adminSession?.role !== "admin") {
+      return NextResponse.json({ success: false, message: "Only administrators can update orders." }, { status: 403 });
+    }
+
     await connectToDatabase();
     const order = await Order.findOne(buildOrderQuery(id));
 
     if (!order) {
       return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });
+    }
+
+    if (paymentStatus === "Paid" && order.paymentStatus !== "Paid") {
+      return NextResponse.json(
+        { success: false, message: "Paid status can only be set after Razorpay signature verification." },
+        { status: 403 }
+      );
     }
 
     if (status) order.status = status;

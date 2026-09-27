@@ -609,6 +609,10 @@ export default function HomePage() {
         user={store.user}
         onClose={() => setIsCheckoutOpen(false)}
         onCreateOrder={store.createOrder}
+        onPaymentSuccess={async () => {
+          store.clearCart();
+          await store.refreshOrders();
+        }}
         onOpenOrderTracking={(orderId) => {
           setTrackingOrderId(orderId);
           setIsTrackingOpen(true);
