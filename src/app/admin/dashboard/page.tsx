@@ -1587,7 +1587,7 @@ export default function AdminDashboardPage() {
                 <div className="flex items-center justify-between">
                   <label className="text-cyan-300 font-extrabold flex items-center space-x-2">
                     <Sparkles className="w-4 h-4 text-cyan-400" />
-                    <span>Hero Carousel Feature & Promotional Offers</span>
+                    <span>Hero Banner & Companion Tile Content</span>
                   </label>
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input
@@ -1596,7 +1596,7 @@ export default function AdminDashboardPage() {
                       onChange={(e) => setProductForm({ ...productForm, isHeroFeatured: e.target.checked })}
                       className="w-4 h-4 rounded text-cyan-500 bg-slate-950 border-slate-700 cursor-pointer"
                     />
-                    <span className="text-xs font-bold text-white">Show in Hero Banner</span>
+                    <span className="text-xs font-bold text-white">Use in hero banner or companion tile</span>
                   </label>
                 </div>
 

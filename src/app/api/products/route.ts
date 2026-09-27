@@ -9,7 +9,8 @@ const seedOperations = () =>
     updateOne: {
       filter: { productId: p.id },
       update: {
-        $set: {
+        // Add newly introduced catalog items without overwriting admin edits.
+        $setOnInsert: {
           productId: p.id,
           title: p.title,
           brand: p.brand,
@@ -20,10 +21,16 @@ const seedOperations = () =>
           rating: p.rating,
           reviewCount: p.reviewCount,
           image: p.image,
+          images: p.images || [p.image],
           stock: p.stock,
           isAiProduct: !!p.isAiProduct,
           isTrending: !!p.isTrending,
           isBestSeller: !!p.isBestSeller,
+          isHeroFeatured: !!p.isHeroFeatured,
+          heroBannerHeadline: p.heroBannerHeadline || "",
+          heroBannerSubtitle: p.heroBannerSubtitle || "",
+          heroBadge: p.heroBadge || "",
+          heroOfferText: p.heroOfferText || "",
           description: p.description,
           features: p.features,
           specs: p.specs,
@@ -37,10 +44,8 @@ export async function GET() {
   try {
     await connectToDatabase();
 
-    const existingCount = await Product.countDocuments();
-    if (existingCount === 0) {
-      await Product.bulkWrite(seedOperations(), { ordered: false });
-    }
+    // Keep the database additive so new AI catalog products appear for existing stores.
+    await Product.bulkWrite(seedOperations(), { ordered: false });
 
     const products = await Product.find({}).sort({ createdAt: -1 });
     const clientProducts = products.map(toClientProduct);
