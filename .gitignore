@@ -25,6 +25,7 @@ yarn-error.log*
 
 # Vercel
 .vercel
+powershell.cmd
 
 # TypeScript
 *.tsbuildinfo

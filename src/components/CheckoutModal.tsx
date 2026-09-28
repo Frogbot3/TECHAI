@@ -1049,10 +1049,10 @@ export default function CheckoutModal({
                   <button
                     type="button"
                     onClick={handlePaymentSubmit}
-                    disabled={step === "PROCESSING" || isSubmittingPayment}
+                    disabled={isSubmittingPayment}
                     className="w-full sm:w-auto px-8 py-3.5 bg-slate-900 hover:bg-cyan-600 active:scale-[0.99] text-white text-xs font-black rounded-2xl shadow-lg hover:shadow-cyan-500/20 transition-all flex items-center justify-center space-x-2 disabled:opacity-60 disabled:cursor-not-allowed order-1 sm:order-2 cursor-pointer"
                   >
-                    {step === "PROCESSING" || isSubmittingPayment ? (
+                    {isSubmittingPayment ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin text-cyan-300" />
                         <span>Initiating Secure Checkout...</span>
