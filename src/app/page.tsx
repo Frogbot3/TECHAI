@@ -6,8 +6,6 @@ import Navbar from "@/components/Navbar";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import HeroCarousel from "@/components/HeroCarousel";
 import Footer from "@/components/Footer";
-import FlashDealsSection from "@/components/FlashDealsSection";
-import CategoryBubbles from "@/components/CategoryBubbles";
 import ShopByNeedSection from "@/components/ShopByNeedSection";
 import FilterSidebar from "@/components/FilterSidebar";
 import TrustBadgesBar from "@/components/TrustBadgesBar";
@@ -248,23 +246,7 @@ export default function HomePage() {
               onSelectProduct={(p) => setQuickViewProduct(p)}
             />
 
-            {/* 3. Flash Deals Section with Clean Countdown */}
-            <FlashDealsSection
-              products={store.products}
-              wishlist={store.wishlist}
-              onAddToCart={handleAddToCartWithToast}
-              onQuickView={(p) => setQuickViewProduct(p)}
-              onToggleWishlist={store.toggleWishlist}
-              onViewAll={() => setSelectedCategory("Electronics")}
-            />
-
-            {/* 4. Popular Categories */}
-            <CategoryBubbles
-              selectedCategory={selectedCategory}
-              onSelectCategory={(cat) => setSelectedCategory(cat)}
-            />
-
-            {/* 5. Shop By Need Discovery Grid */}
+            {/* 3. Shop By Need Discovery Grid */}
             <ShopByNeedSection
               onSelectNeed={(category, query) => {
                 setSelectedCategory(category);
