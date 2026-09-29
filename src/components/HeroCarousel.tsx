@@ -308,17 +308,37 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
     setCurrentSlide((current) => direction === "next" ? (current + 1) % allSlides.length : (current - 1 + allSlides.length) % allSlides.length);
   };
 
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX - touchEndX;
+    if (diff > 45) {
+      changeSlide("next");
+    } else if (diff < -45) {
+      changeSlide("previous");
+    }
+    setTouchStartX(null);
+  };
+
   return (
-    <section className="px-3 sm:px-6 lg:px-8 pt-3 pb-2 font-sans" aria-label="Featured Offers">
+    <section className="px-2.5 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-1 sm:pb-2 font-sans" aria-label="Featured Offers">
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
         <div
-          className={`relative min-h-[430px] sm:min-h-[360px] lg:min-h-[342px] overflow-hidden rounded-2xl border text-slate-950 shadow-lg shadow-slate-950/10 p-4 sm:p-6 lg:col-span-8 flex flex-col justify-between transition-colors duration-500 ${slide.theme.container}`}
+          className={`relative min-h-[190px] sm:min-h-[360px] lg:min-h-[342px] overflow-hidden rounded-2xl border text-slate-950 shadow-md sm:shadow-lg shadow-slate-950/10 p-3 sm:p-6 lg:col-span-8 flex flex-col justify-between transition-colors duration-500 ${slide.theme.container}`}
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
           onFocusCapture={() => setIsPaused(true)}
           onBlurCapture={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget as Node)) setIsPaused(false);
           }}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.55),transparent_32%)]" />
           <AnimatePresence mode="wait" initial={false}>
@@ -328,45 +348,45 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
               animate={{ opacity: 1, x: 0 }}
               exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
               transition={{ duration: reduceMotion ? 0.15 : 0.25 }}
-              className="relative grid grid-cols-1 md:grid-cols-12 items-center gap-4 sm:gap-6 my-auto"
+              className="relative grid grid-cols-12 items-center gap-2 sm:gap-6 my-auto"
             >
-              <div className="order-2 md:order-1 md:col-span-7 space-y-2.5 sm:space-y-3 min-w-0">
-                <span className={`inline-flex max-w-full items-center gap-1.5 px-2.5 py-1 rounded-md border text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider ${slide.badgeStyle}`}>
-                  <Sparkles className="w-3 h-3 shrink-0" />
+              <div className="col-span-7 space-y-1 sm:space-y-3 min-w-0">
+                <span className={`inline-flex max-w-full items-center gap-1 sm:gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border text-[9px] sm:text-[11px] font-extrabold uppercase tracking-wider ${slide.badgeStyle}`}>
+                  <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
                   <span className="truncate">{slide.badge}</span>
                 </span>
-                <h1 className={`text-xl sm:text-2xl lg:text-3xl font-black leading-tight tracking-tight line-clamp-2 ${slide.theme.heading}`}>{slide.title}</h1>
-                <p className={`text-xs sm:text-sm font-medium leading-relaxed line-clamp-2 ${slide.theme.body}`}>{slide.subtitle}</p>
-                <div className="pt-0.5 flex flex-wrap items-baseline gap-2">
-                  <span className={`text-xs font-bold ${slide.theme.label}`}>{slide.priceLabel}:</span>
-                  <span className={`text-2xl sm:text-3xl font-black tracking-tight ${slide.theme.price}`}>{slide.price}</span>
-                  {slide.originalPrice && <span className={`text-xs sm:text-sm font-medium line-through ${slide.theme.original}`}>{slide.originalPrice}</span>}
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-600 text-white font-extrabold text-[10px] sm:text-[11px] shadow-sm"><Tag className="w-3 h-3" /><span>{slide.offer}</span></span>
+                <h1 className={`text-xs sm:text-2xl lg:text-3xl font-black leading-snug tracking-tight line-clamp-2 ${slide.theme.heading}`}>{slide.title}</h1>
+                <p className={`hidden sm:block text-xs sm:text-sm font-medium leading-relaxed line-clamp-2 ${slide.theme.body}`}>{slide.subtitle}</p>
+                <div className="pt-0.5 flex flex-wrap items-baseline gap-1 sm:gap-2">
+                  <span className={`hidden sm:inline text-xs font-bold ${slide.theme.label}`}>{slide.priceLabel}:</span>
+                  <span className={`text-sm sm:text-2xl lg:text-3xl font-black tracking-tight ${slide.theme.price}`}>{slide.price}</span>
+                  {slide.originalPrice && <span className={`text-[10px] sm:text-sm font-medium line-through ${slide.theme.original}`}>{slide.originalPrice}</span>}
+                  <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 py-0.5 rounded-md bg-rose-600 text-white font-extrabold text-[8px] sm:text-[11px] shadow-sm"><Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" /><span className="truncate max-w-[85px] sm:max-w-none">{slide.offer}</span></span>
                 </div>
-                <div className="pt-1.5 flex flex-wrap items-center gap-3">
-                  <button type="button" onClick={() => slide.productRef && onSelectProduct ? onSelectProduct(slide.productRef) : onExploreCategory(slide.category)} className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl ${slide.ctaBg} text-white font-extrabold text-xs sm:text-sm transition-all shadow-sm active:scale-95 cursor-pointer`}><span>{slide.cta}</span><ArrowRight className={`w-4 h-4 ${slide.ctaArrow}`} /></button>
-                  <button type="button" onClick={() => onExploreCategory(slide.category)} className={`w-full sm:w-auto inline-flex items-center justify-center text-xs sm:text-sm font-bold ${slide.ctaHover} underline decoration-slate-400 underline-offset-4 transition cursor-pointer py-1`}>Browse {slide.category}</button>
+                <div className="pt-0.5 sm:pt-1.5 flex flex-wrap items-center gap-2 sm:gap-3">
+                  <button type="button" onClick={() => slide.productRef && onSelectProduct ? onSelectProduct(slide.productRef) : onExploreCategory(slide.category)} className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 h-7 sm:h-10 px-3 sm:px-5 rounded-lg sm:rounded-xl ${slide.ctaBg} text-white font-extrabold text-[11px] sm:text-sm transition-all shadow-sm active:scale-95 cursor-pointer`}><span>{slide.cta}</span><ArrowRight className={`w-3 h-3 sm:w-4 sm:h-4 ${slide.ctaArrow}`} /></button>
+                  <button type="button" onClick={() => onExploreCategory(slide.category)} className={`hidden sm:inline-flex items-center justify-center text-xs sm:text-sm font-bold ${slide.ctaHover} underline decoration-slate-400 underline-offset-4 transition cursor-pointer py-1`}>Browse {slide.category}</button>
                 </div>
               </div>
 
-              <div className="order-1 md:order-2 md:col-span-5 flex items-center justify-center">
-                <div className={`relative w-32 h-32 sm:w-44 sm:h-44 lg:w-48 lg:h-48 rounded-2xl border shadow-xl p-3 flex items-center justify-center overflow-hidden group ${slide.theme.media}`}>
-                  <img src={slide.image} alt={slide.title} className="max-h-full max-w-full object-contain rounded-xl drop-shadow-sm transition-transform duration-300 group-hover:scale-105" loading="eager" />
-                  <div className="absolute top-2 right-2 bg-emerald-950/90 text-emerald-300 text-[10px] font-bold px-1.5 py-0.5 rounded border border-emerald-700/70 flex items-center gap-0.5"><ShieldCheck className="w-3 h-3" /><span>Verified</span></div>
+              <div className="col-span-5 flex items-center justify-center">
+                <div className={`relative w-full aspect-square max-w-[130px] sm:max-w-none sm:w-44 sm:h-44 lg:w-48 lg:h-48 rounded-xl sm:rounded-2xl border shadow-md sm:shadow-xl p-1.5 sm:p-3 flex items-center justify-center overflow-hidden group ${slide.theme.media}`}>
+                  <img src={slide.image} alt={slide.title} className="w-full h-full object-contain rounded-lg sm:rounded-xl drop-shadow-sm transition-transform duration-300 group-hover:scale-105" loading="eager" />
+                  <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-emerald-950/90 text-emerald-300 text-[8px] sm:text-[10px] font-bold px-1 sm:px-1.5 py-0.5 rounded border border-emerald-700/70 flex items-center gap-0.5"><ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3" /><span>Verified</span></div>
                 </div>
               </div>
             </motion.div>
           </AnimatePresence>
 
-          <div className={`relative flex items-center justify-between pt-2.5 border-t mt-3 ${slide.theme.divider}`}>
-            <div className="flex items-center gap-1.5" role="tablist" aria-label="Hero carousel pagination">
-              {allSlides.map((item, index) => <button key={String(item.id)} type="button" role="tab" aria-selected={index === activeIndex} aria-label={`Go to slide ${index + 1}`} onClick={() => setCurrentSlide(index)} className={`h-1.5 rounded-full transition-all cursor-pointer ${index === activeIndex ? `w-6 ${slide.theme.activeIndicator}` : `w-2 ${slide.theme.indicator}`}`} />)}
+          <div className={`relative flex items-center justify-between pt-1.5 sm:pt-2.5 border-t mt-2 sm:mt-3 ${slide.theme.divider}`}>
+            <div className="flex items-center gap-1 sm:gap-1.5" role="tablist" aria-label="Hero carousel pagination">
+              {allSlides.map((item, index) => <button key={String(item.id)} type="button" role="tab" aria-selected={index === activeIndex} aria-label={`Go to slide ${index + 1}`} onClick={() => setCurrentSlide(index)} className={`h-1 sm:h-1.5 rounded-full transition-all cursor-pointer ${index === activeIndex ? `w-4 sm:w-6 ${slide.theme.activeIndicator}` : `w-1.5 sm:w-2 ${slide.theme.indicator}`}`} />)}
             </div>
-            <div className="flex items-center gap-1.5"><button type="button" onClick={() => changeSlide("previous")} className={`w-8 h-8 rounded-lg border flex items-center justify-center transition cursor-pointer ${slide.theme.control}`} aria-label="Previous slide"><ChevronLeft className="w-4 h-4" /></button><button type="button" onClick={() => changeSlide("next")} className={`w-8 h-8 rounded-lg border flex items-center justify-center transition cursor-pointer ${slide.theme.control}`} aria-label="Next slide"><ChevronRight className="w-4 h-4" /></button></div>
+            <div className="flex items-center gap-1 sm:gap-1.5"><button type="button" onClick={() => changeSlide("previous")} className={`w-6 h-6 sm:w-8 sm:h-8 rounded-md sm:rounded-lg border flex items-center justify-center transition cursor-pointer ${slide.theme.control}`} aria-label="Previous slide"><ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4" /></button><button type="button" onClick={() => changeSlide("next")} className={`w-6 h-6 sm:w-8 sm:h-8 rounded-md sm:rounded-lg border flex items-center justify-center transition cursor-pointer ${slide.theme.control}`} aria-label="Next slide"><ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" /></button></div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 lg:col-span-4 lg:grid-rows-2">
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-1 gap-3 lg:col-span-4 lg:grid-rows-2">
           {companionDeals.map((deal) => {
             const accentClasses = deal.accent === "cyan"
               ? { card: "bg-cyan-50 border-cyan-200 hover:bg-cyan-100 hover:border-cyan-300", label: "text-cyan-800 bg-cyan-100 border-cyan-300", title: "text-slate-950", detail: "text-slate-600", action: "text-cyan-700", image: "bg-white border-cyan-200" }
