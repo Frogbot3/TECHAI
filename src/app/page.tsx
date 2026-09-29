@@ -5,6 +5,7 @@ import { useTechAiStore } from "@/lib/store";
 import Navbar from "@/components/Navbar";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import HeroCarousel from "@/components/HeroCarousel";
+import BazaarPromoCards from "@/components/BazaarPromoCards";
 import Footer from "@/components/Footer";
 import FlashDealsSection from "@/components/FlashDealsSection";
 import CategoryBubbles from "@/components/CategoryBubbles";
@@ -208,7 +209,14 @@ export default function HomePage() {
   };
 
   const cartCount = store.cart.reduce((sum, item) => sum + item.quantity, 0);
-  const isHomeShowcase = selectedCategory === "All Categories" && !searchQuery.trim();
+  const isHomeShowcase =
+    selectedCategory === "All Categories" &&
+    !searchQuery.trim() &&
+    selectedBrands.length === 0 &&
+    selectedPriceRange === null &&
+    minRating === null &&
+    !inStockOnly &&
+    minDiscount === null;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-cyan-500 selection:text-slate-950 pb-20 md:pb-8">
@@ -241,6 +249,13 @@ export default function HomePage() {
         {isHomeShowcase ? (
           /* HOMEPAGE SHOWCASE */
           <div className="space-y-4">
+            {/* 1. Bazaar-style offer cards */}
+            <BazaarPromoCards
+              products={store.products}
+              onExploreCategory={(cat) => setSelectedCategory(cat)}
+              onSelectPriceRange={setSelectedPriceRange}
+            />
+
             {/* 2. Main Hero Section */}
             <HeroCarousel
               products={store.products}
