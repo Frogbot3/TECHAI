@@ -36,23 +36,29 @@ export default function FlashDealsSection({
     return () => clearInterval(timer);
   }, []);
 
-  const dealProducts = products.filter((p) => p.discountPercent >= 40).slice(0, 6);
+  const dealProducts = (
+    products.filter((p) => p.discountPercent >= 40).length >= 2
+      ? products.filter((p) => p.discountPercent >= 40)
+      : products.filter((p) => p.discountPercent >= 20).length > 0
+      ? products.filter((p) => p.discountPercent >= 20)
+      : products.slice(0, 6)
+  ).slice(0, 6);
 
   if (dealProducts.length === 0) return null;
 
   return (
-    <section className="px-3 sm:px-6 lg:px-8 py-5">
+    <section className="px-3 sm:px-6 lg:px-8 py-4">
       {/* Header with Title & Clean Countdown Timer */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200">
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-1.5 text-rose-600 font-extrabold text-lg sm:text-xl">
-            <Flame className="w-5 h-5 fill-rose-600" />
+      <div className="flex items-center justify-between mb-3.5 pb-2.5 border-b border-slate-200/80">
+        <div className="flex items-center space-x-2.5 sm:space-x-3.5 flex-wrap gap-y-1.5">
+          <div className="flex items-center space-x-1.5 text-slate-900 font-bold text-lg sm:text-xl tracking-tight">
+            <Flame className="w-5 h-5 fill-rose-600 text-rose-600" />
             <span>Flash Deals</span>
           </div>
 
-          <div className="flex items-center space-x-1 text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
+          <div className="flex items-center space-x-1 text-xs font-mono font-bold text-slate-700 bg-slate-100 border border-slate-200/70 px-2.5 py-0.5 rounded-lg shadow-2xs">
             <Timer className="w-3.5 h-3.5 text-slate-500 mr-1" />
-            <span>Ends in:</span>
+            <span className="hidden sm:inline text-slate-500">Ends in:</span>
             <span className="text-rose-600 font-extrabold">
               {String(timeLeft.hours).padStart(2, "0")}:{String(timeLeft.minutes).padStart(2, "0")}:
               {String(timeLeft.seconds).padStart(2, "0")}
@@ -63,7 +69,7 @@ export default function FlashDealsSection({
         <button
           type="button"
           onClick={onViewAll}
-          className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-1 self-start sm:self-auto cursor-pointer"
+          className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-1 cursor-pointer transition-colors"
         >
           <span>View All Deals</span>
           <ArrowRight className="w-3.5 h-3.5" />

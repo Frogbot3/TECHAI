@@ -161,8 +161,8 @@ export default function CategoryBubbles({
   };
 
   return (
-    <section id="categories-section" className="px-3 sm:px-6 lg:px-8 py-5">
-      <div className="flex items-center justify-between mb-3.5">
+    <section id="categories-section" className="px-3 sm:px-6 lg:px-8 py-4">
+      <div className="flex items-center justify-between mb-3.5 pb-2.5 border-b border-slate-200/80">
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <span>Popular Categories</span>

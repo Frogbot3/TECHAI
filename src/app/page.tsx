@@ -6,6 +6,8 @@ import Navbar from "@/components/Navbar";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import HeroCarousel from "@/components/HeroCarousel";
 import Footer from "@/components/Footer";
+import FlashDealsSection from "@/components/FlashDealsSection";
+import CategoryBubbles from "@/components/CategoryBubbles";
 import ShopByNeedSection from "@/components/ShopByNeedSection";
 import FilterSidebar from "@/components/FilterSidebar";
 import TrustBadgesBar from "@/components/TrustBadgesBar";
@@ -235,7 +237,7 @@ export default function HomePage() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto pb-12">
+      <main className="flex-1 max-w-7xl w-full mx-auto pb-20 md:pb-12">
         {isHomeShowcase ? (
           /* HOMEPAGE SHOWCASE */
           <div className="space-y-4">
@@ -246,7 +248,23 @@ export default function HomePage() {
               onSelectProduct={(p) => setQuickViewProduct(p)}
             />
 
-            {/* 3. Shop By Need Discovery Grid */}
+            {/* 3. Flash Deals Section */}
+            <FlashDealsSection
+              products={store.products}
+              wishlist={store.wishlist}
+              onAddToCart={handleAddToCartWithToast}
+              onQuickView={(p) => setQuickViewProduct(p)}
+              onToggleWishlist={store.toggleWishlist}
+              onViewAll={() => setSelectedCategory("Electronics")}
+            />
+
+            {/* 4. Popular Categories */}
+            <CategoryBubbles
+              selectedCategory={selectedCategory}
+              onSelectCategory={(cat) => setSelectedCategory(cat)}
+            />
+
+            {/* 5. Shop By Need Discovery Grid */}
             <ShopByNeedSection
               onSelectNeed={(category, query) => {
                 setSelectedCategory(category);

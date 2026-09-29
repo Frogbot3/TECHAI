@@ -58,6 +58,9 @@ export interface ShippingAddress {
   state: string;
   pincode: string;
   landmark?: string;
+  houseNumber?: string;
+  deliveryInstructions?: string;
+  coordinates?: { lat: number; lng: number };
 }
 
 export interface PaymentDetails {

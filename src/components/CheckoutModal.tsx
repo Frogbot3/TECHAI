@@ -38,8 +38,10 @@ import {
   AlertCircle,
   RefreshCw,
   Clock,
-  ArrowLeft
+  ArrowLeft,
+  Navigation
 } from "lucide-react";
+import AddressAutocomplete, { AddressPayload } from "./AddressAutocomplete";
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -95,13 +97,18 @@ export default function CheckoutModal({
     fullName: "",
     phone: "",
     email: "",
+    houseNumber: "",
     street: "",
     city: "",
     state: "Karnataka",
     pincode: "",
-    landmark: ""
+    landmark: "",
+    deliveryInstructions: "",
+    coordinates: undefined,
   });
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [saveAddressForFuture, setSaveAddressForFuture] = useState(true);
   const [validationError, setValidationError] = useState("");
   const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
   const [pendingPaymentResponse, setPendingPaymentResponse] = useState<RazorpaySuccessResponse | null>(null);
@@ -122,11 +129,14 @@ export default function CheckoutModal({
         fullName: user.name || existingAddr?.fullName || "",
         phone: user.phone || existingAddr?.phone || "",
         email: user.email || existingAddr?.email || "",
+        houseNumber: existingAddr?.houseNumber || "",
         street: existingAddr?.street || "",
         city: existingAddr?.city || "",
         state: existingAddr?.state || "Karnataka",
         pincode: existingAddr?.pincode || "",
-        landmark: existingAddr?.landmark || ""
+        landmark: existingAddr?.landmark || "",
+        deliveryInstructions: existingAddr?.deliveryInstructions || "",
+        coordinates: existingAddr?.coordinates,
       });
     }
   }, [user, isOpen]);
@@ -146,27 +156,63 @@ export default function CheckoutModal({
   const shippingFee = deliveryType === "express" ? 99 : (subtotal > 499 ? 0 : 49);
   const finalTotal = Math.max(0, subtotal - discount + shippingFee);
 
+  const handleAutocompleteSelect = (data: AddressPayload) => {
+    setAddress((prev) => ({
+      ...prev,
+      houseNumber: data.houseNumber || prev.houseNumber,
+      street: [data.houseNumber, data.street || data.area].filter(Boolean).join(", ") || data.street || data.area || prev.street,
+      city: data.city || prev.city,
+      state: data.state || prev.state,
+      pincode: data.pincode || prev.pincode,
+      coordinates: data.lat && data.lng ? { lat: data.lat, lng: data.lng } : prev.coordinates,
+    }));
+
+    setFieldErrors((prev) => {
+      const updated = { ...prev };
+      if (data.street) delete updated.street;
+      if (data.city) delete updated.city;
+      if (data.state) delete updated.state;
+      if (data.pincode) delete updated.pincode;
+      return updated;
+    });
+  };
+
   const handleAddressSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError("");
+    const errors: Record<string, string> = {};
 
     if (!address.fullName.trim()) {
-      setValidationError("Please enter your full name for courier delivery.");
-      return;
+      errors.fullName = "Please enter recipient's full name";
     }
-    if (address.phone.replace(/\D/g, "").length !== 10) {
-      setValidationError("Please enter a valid 10-digit mobile number for delivery updates.");
-      return;
+    const cleanPhone = address.phone.replace(/\D/g, "");
+    if (cleanPhone.length !== 10) {
+      errors.phone = "Please enter a valid 10-digit Indian mobile number (e.g. 9876543210)";
     }
-    if (!address.street.trim() || !address.city.trim()) {
-      setValidationError("Please provide your complete street address and city.");
-      return;
+    if (!address.houseNumber?.trim() && !address.street.trim()) {
+      errors.houseNumber = "House / Flat / Building number is required";
     }
-    if (address.pincode.replace(/\D/g, "").length !== 6) {
-      setValidationError("Please enter a valid 6-digit postal Pincode.");
+    if (!address.street.trim()) {
+      errors.street = "Street and locality are required";
+    }
+    if (!address.city.trim()) {
+      errors.city = "City is required";
+    }
+    if (!address.state.trim()) {
+      errors.state = "State is required";
+    }
+    const cleanPin = address.pincode.replace(/\D/g, "");
+    if (cleanPin.length !== 6) {
+      errors.pincode = "Please enter a valid 6-digit postal PIN code";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setValidationError("Please fix the required address fields highlighted in red below.");
       return;
     }
 
+    setFieldErrors({});
     setStep("PAYMENT");
   };
 
@@ -535,13 +581,30 @@ export default function CheckoutModal({
                 </div>
 
                 {validationError && (
-                  <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-2xl flex items-center gap-2">
+                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-xl flex items-center gap-2">
                     <Info className="w-4 h-4 text-rose-600 flex-shrink-0" />
                     <span>{validationError}</span>
                   </div>
                 )}
 
-                {/* Form fields */}
+                {/* 1. Address Autocomplete & GPS Detection */}
+                <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-3.5 space-y-2">
+                  <AddressAutocomplete
+                    onAddressSelect={handleAutocompleteSelect}
+                    currentAddressString={address.street}
+                    selectedCoordinates={address.coordinates}
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-1 pb-0.5">
+                  <div className="h-px bg-slate-200 flex-1" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Delivery Address Details
+                  </span>
+                  <div className="h-px bg-slate-200 flex-1" />
+                </div>
+
+                {/* Form fields with clear inline validation */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="space-y-1">
                     <label className="text-xs font-extrabold text-slate-700 flex items-center space-x-1">
@@ -552,10 +615,21 @@ export default function CheckoutModal({
                       type="text"
                       required
                       value={address.fullName}
-                      onChange={(e) => setAddress({ ...address, fullName: e.target.value })}
+                      onChange={(e) => {
+                        setAddress({ ...address, fullName: e.target.value });
+                        if (fieldErrors.fullName) setFieldErrors({ ...fieldErrors, fullName: "" });
+                      }}
                       placeholder="e.g. Rahul Sharma"
-                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition font-medium"
+                      className={`w-full px-3.5 py-2.5 text-xs bg-slate-50 border rounded-xl focus:bg-white focus:ring-2 focus:outline-none transition font-medium ${
+                        fieldErrors.fullName ? "border-rose-400 focus:ring-rose-500 bg-rose-50/30" : "border-slate-200 focus:ring-cyan-500"
+                      }`}
                     />
+                    {fieldErrors.fullName && (
+                      <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>{fieldErrors.fullName}</span>
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -572,18 +646,30 @@ export default function CheckoutModal({
                         required
                         maxLength={10}
                         value={address.phone}
-                        onChange={(e) => setAddress({ ...address, phone: e.target.value.replace(/\D/g, "") })}
-                        placeholder="10-digit number"
-                        className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-r-xl focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition font-medium font-mono"
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "");
+                          setAddress({ ...address, phone: val });
+                          if (fieldErrors.phone) setFieldErrors({ ...fieldErrors, phone: "" });
+                        }}
+                        placeholder="10-digit mobile number"
+                        className={`w-full px-3.5 py-2.5 text-xs bg-slate-50 border rounded-r-xl focus:bg-white focus:ring-2 focus:outline-none transition font-medium font-mono ${
+                          fieldErrors.phone ? "border-rose-400 focus:ring-rose-500 bg-rose-50/30" : "border-slate-200 focus:ring-cyan-500"
+                        }`}
                       />
                     </div>
+                    {fieldErrors.phone && (
+                      <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>{fieldErrors.phone}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-xs font-extrabold text-slate-700 flex items-center space-x-1">
                     <MailIcon className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Email Address (for order updates & PDF invoice)</span>
+                    <span>Email Address (Optional — for order updates & PDF invoice)</span>
                   </label>
                   <input
                     type="email"
@@ -594,18 +680,56 @@ export default function CheckoutModal({
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-extrabold text-slate-700">
-                    Street Address & House / Flat No. *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={address.street}
-                    onChange={(e) => setAddress({ ...address, street: e.target.value })}
-                    placeholder="House/Flat number, Building name, Street name, Area"
-                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition font-medium"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1">
+                    <label className="text-xs font-extrabold text-slate-700">
+                      House / Flat / Building No. *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={address.houseNumber || ""}
+                      onChange={(e) => {
+                        setAddress({ ...address, houseNumber: e.target.value });
+                        if (fieldErrors.houseNumber) setFieldErrors({ ...fieldErrors, houseNumber: "" });
+                      }}
+                      placeholder="e.g. Flat 402, Sunshine Heights"
+                      className={`w-full px-3.5 py-2.5 text-xs bg-slate-50 border rounded-xl focus:bg-white focus:ring-2 focus:outline-none transition font-medium ${
+                        fieldErrors.houseNumber ? "border-rose-400 focus:ring-rose-500 bg-rose-50/30" : "border-slate-200 focus:ring-cyan-500"
+                      }`}
+                    />
+                    {fieldErrors.houseNumber && (
+                      <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>{fieldErrors.houseNumber}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-extrabold text-slate-700">
+                      Street & Area / Locality *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={address.street}
+                      onChange={(e) => {
+                        setAddress({ ...address, street: e.target.value });
+                        if (fieldErrors.street) setFieldErrors({ ...fieldErrors, street: "" });
+                      }}
+                      placeholder="e.g. 100 Feet Road, Indiranagar"
+                      className={`w-full px-3.5 py-2.5 text-xs bg-slate-50 border rounded-xl focus:bg-white focus:ring-2 focus:outline-none transition font-medium ${
+                        fieldErrors.street ? "border-rose-400 focus:ring-rose-500 bg-rose-50/30" : "border-slate-200 focus:ring-cyan-500"
+                      }`}
+                    />
+                    {fieldErrors.street && (
+                      <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>{fieldErrors.street}</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -615,10 +739,21 @@ export default function CheckoutModal({
                       type="text"
                       required
                       value={address.city}
-                      onChange={(e) => setAddress({ ...address, city: e.target.value })}
+                      onChange={(e) => {
+                        setAddress({ ...address, city: e.target.value });
+                        if (fieldErrors.city) setFieldErrors({ ...fieldErrors, city: "" });
+                      }}
                       placeholder="e.g. Bengaluru"
-                      className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition font-medium"
+                      className={`w-full px-3 py-2.5 text-xs bg-slate-50 border rounded-xl focus:bg-white focus:ring-2 focus:outline-none transition font-medium ${
+                        fieldErrors.city ? "border-rose-400 focus:ring-rose-500 bg-rose-50/30" : "border-slate-200 focus:ring-cyan-500"
+                      }`}
                     />
+                    {fieldErrors.city && (
+                      <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>{fieldErrors.city}</span>
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -635,28 +770,67 @@ export default function CheckoutModal({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-extrabold text-slate-700">Pincode *</label>
+                    <label className="text-xs font-extrabold text-slate-700">PIN Code *</label>
                     <input
                       type="text"
                       required
                       maxLength={6}
                       value={address.pincode}
-                      onChange={(e) => setAddress({ ...address, pincode: e.target.value.replace(/\D/g, "") })}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        setAddress({ ...address, pincode: val });
+                        if (fieldErrors.pincode) setFieldErrors({ ...fieldErrors, pincode: "" });
+                      }}
                       placeholder="6-digit PIN"
-                      className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition"
+                      className={`w-full px-3 py-2.5 text-xs bg-slate-50 border rounded-xl font-mono font-bold focus:bg-white focus:ring-2 focus:outline-none transition ${
+                        fieldErrors.pincode ? "border-rose-400 focus:ring-rose-500 bg-rose-50/30" : "border-slate-200 focus:ring-cyan-500"
+                      }`}
+                    />
+                    {fieldErrors.pincode && (
+                      <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>{fieldErrors.pincode}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1">
+                    <label className="text-xs font-extrabold text-slate-700">Landmark (Optional)</label>
+                    <input
+                      type="text"
+                      value={address.landmark || ""}
+                      onChange={(e) => setAddress({ ...address, landmark: e.target.value })}
+                      placeholder="Near Metro Station, prominent park, etc."
+                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-extrabold text-slate-700">Delivery Instructions (Optional)</label>
+                    <input
+                      type="text"
+                      value={address.deliveryInstructions || ""}
+                      onChange={(e) => setAddress({ ...address, deliveryInstructions: e.target.value })}
+                      placeholder="e.g. Leave with security / Ring bell twice"
+                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition font-medium"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-extrabold text-slate-700">Landmark (Optional)</label>
+                {/* Save Address Option Checkbox */}
+                <div className="pt-1 flex items-center gap-2">
                   <input
-                    type="text"
-                    value={address.landmark}
-                    onChange={(e) => setAddress({ ...address, landmark: e.target.value })}
-                    placeholder="Near prominent park, school, or metro station"
-                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition font-medium"
+                    type="checkbox"
+                    id="saveAddressCheckbox"
+                    checked={saveAddressForFuture}
+                    onChange={(e) => setSaveAddressForFuture(e.target.checked)}
+                    className="w-4 h-4 rounded text-cyan-600 border-slate-300 focus:ring-cyan-500 cursor-pointer"
                   />
+                  <label htmlFor="saveAddressCheckbox" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                    Save this delivery address for my future purchases
+                  </label>
                 </div>
 
                 {/* Delivery Option Selector */}
