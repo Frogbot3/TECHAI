@@ -81,7 +81,7 @@ export default function CartDrawer({
               cart.map((item) => (
                 <div key={item.product.id} className="grid grid-cols-[72px_1fr_auto] gap-3 rounded-lg border border-slate-200 bg-white p-3">
                   <img
-                    src={item.product.image}
+                    src={item.product.normalizedImage || item.product.image}
                     alt={item.product.title}
                     onError={(e) => {
                       e.currentTarget.src = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80";

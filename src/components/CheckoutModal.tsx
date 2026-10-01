@@ -567,7 +567,7 @@ export default function CheckoutModal({
                         className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 flex-shrink-0"
                       >
                         <img
-                          src={item.product.image}
+                          src={item.product.normalizedImage || item.product.image}
                           alt={item.product.title}
                           className="w-7 h-7 object-contain rounded bg-slate-50"
                         />
@@ -1533,7 +1533,7 @@ export default function CheckoutModal({
                           className="flex items-center gap-3 min-w-0 cursor-pointer flex-1"
                         >
                           <img
-                            src={item.product.image}
+                            src={item.product.normalizedImage || item.product.image}
                             alt={item.product.title}
                             className="w-12 h-12 object-contain rounded-xl bg-slate-50 border border-slate-200 p-1 flex-shrink-0 group-hover:border-cyan-400 transition-colors"
                           />

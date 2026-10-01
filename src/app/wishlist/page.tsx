@@ -199,7 +199,7 @@ export default function WishlistPage() {
                   >
                     {product.image ? (
                       <img
-                        src={product.image}
+                        src={product.normalizedImage || product.image}
                         alt={product.title}
                         className="h-full w-full object-contain object-center rounded-xl transition-transform duration-300 group-hover:scale-105"
                         loading="lazy"

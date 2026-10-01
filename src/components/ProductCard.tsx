@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Product } from "@/lib/types";
 import { Heart, ShoppingCart, Star, Check, Package, Truck, Zap } from "lucide-react";
@@ -22,7 +22,13 @@ export default function ProductCard({
   onToggleWishlist,
 }: ProductCardProps) {
   const [imgError, setImgError] = useState(false);
+  const [useOriginalImage, setUseOriginalImage] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+    setUseOriginalImage(false);
+  }, [product.id, product.normalizedImage, product.image]);
 
   const isOutOfStock = product.stock <= 0;
   const isLowStock = !isOutOfStock && product.stock <= 5;
@@ -85,13 +91,16 @@ export default function ProductCard({
           }
         }}
         aria-label={`View ${product.title}`}
-        className="relative aspect-square w-full bg-slate-50 rounded-xl border border-slate-100/90 p-3 sm:p-4 flex items-center justify-center overflow-hidden mb-2.5 group-hover:bg-slate-100/60 transition-colors cursor-pointer"
+        className="relative aspect-square w-full min-h-0 bg-slate-50 rounded-xl border border-slate-100/90 p-2.5 sm:p-3 flex items-center justify-center overflow-hidden mb-2.5 group-hover:bg-slate-100/60 transition-colors cursor-pointer"
       >
-        {!imgError && product.image ? (
+        {!imgError && (product.normalizedImage || product.image) ? (
           <img
-            src={product.image}
+            src={useOriginalImage ? (product.originalImage || product.image) : (product.normalizedImage || product.image)}
             alt={product.title}
-            onError={() => setImgError(true)}
+            onError={() => {
+              if (product.normalizedImage && !useOriginalImage) setUseOriginalImage(true);
+              else setImgError(true);
+            }}
             className="h-full w-full object-contain object-center rounded-xl transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
           />

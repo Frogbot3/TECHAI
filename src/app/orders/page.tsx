@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
@@ -9,11 +9,12 @@ import TechAiLogo from "@/components/TechAiLogo";
 import OrderTrackingModal from "@/components/OrderTrackingModal";
 import InvoicePreviewModal from "@/components/InvoicePreviewModal";
 import WriteReviewModal from "@/components/WriteReviewModal";
+import RefundRequestModal, { RefundStatusCard } from "@/components/RefundRequestModal";
 import CartDrawer from "@/components/CartDrawer";
 import AuthModal from "@/components/AuthModal";
 import Footer from "@/components/Footer";
 import { useTechAiStore } from "@/lib/store";
-import { Order, Product } from "@/lib/types";
+import { Order, Product, Refund, RefundStatus } from "@/lib/types";
 import { generateOrderInvoice } from "@/lib/generateInvoice";
 import {
   Search,
@@ -31,7 +32,8 @@ import {
   Filter,
   ShieldCheck,
   ShoppingBag,
-  ExternalLink
+  ExternalLink,
+  RotateCcw
 } from "lucide-react";
 
 export default function OrdersPage() {
@@ -47,6 +49,19 @@ export default function OrdersPage() {
   const [reviewProduct, setReviewProduct] = useState<any | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [refunds, setRefunds] = useState<Refund[]>([]);
+  const [refundModalOrder, setRefundModalOrder] = useState<Order | null>(null);
+
+  useEffect(() => {
+    if (!store.user) {
+      setRefunds([]);
+      return;
+    }
+    fetch("/api/refunds", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => { if (data.success) setRefunds(data.refunds || []); })
+      .catch(() => undefined);
+  }, [store.user?.id]);
 
   const totalOrders = store.orders.length;
   const inTransitCount = store.orders.filter(
@@ -79,6 +94,14 @@ export default function OrdersPage() {
       store.addToCart(item.product, item.quantity);
     });
     setIsCartOpen(true);
+  };
+
+  const handleCancelRefund = async (refund: Refund) => {
+    if (!window.confirm("Cancel this pending refund request?")) return;
+    const response = await fetch(`/api/refunds/${refund.id}/cancel`, { method: "POST" });
+    const data = await response.json();
+    if (data.success) setRefunds((current) => current.map((item) => item.id === refund.id ? data.refund : item));
+    else window.alert(data.message || "Could not cancel the refund request.");
   };
 
   const cartCount = store.cart.reduce((sum, i) => sum + i.quantity, 0);
@@ -300,6 +323,12 @@ export default function OrdersPage() {
               });
 
               const isDelivered = order.status === "Delivered";
+              const orderRefunds = refunds.filter((refund) => refund.orderId === order.id);
+              const activeRefundProductIds = new Set(orderRefunds.filter((refund) => ["REQUESTED", "UNDER_REVIEW", "APPROVED", "REFUND_PROCESSING"].includes(refund.status)).flatMap((refund) => refund.items.map((item) => item.productId)));
+              const deliveredAtEntry = [...(order.statusHistory || [])].reverse().find((item) => item.status === "Delivered");
+              const deliveredAt = deliveredAtEntry ? new Date(deliveredAtEntry.timestamp) : null;
+              const refundDeadline = deliveredAt && !Number.isNaN(deliveredAt.getTime()) ? new Date(deliveredAt.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
+              const canRequestRefund = Boolean(store.user && isDelivered && order.paymentStatus === "Paid" && order.razorpayPaymentId && refundDeadline && Date.now() <= refundDeadline.getTime() && order.items.some((item) => !activeRefundProductIds.has(item.product.id)));
 
               return (
                 <div
@@ -340,6 +369,9 @@ export default function OrdersPage() {
                     </div>
                   </div>
 
+                  {orderRefunds.length > 0 && <div className="space-y-2">{orderRefunds.map((refund) => <RefundStatusCard key={refund.id} refund={refund} onCancel={handleCancelRefund} />)}</div>}
+                  {isDelivered && order.paymentStatus === "Paid" && refundDeadline && Date.now() > refundDeadline.getTime() && orderRefunds.length === 0 && <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-500">The 7-day refund window closed on {refundDeadline.toLocaleDateString("en-IN")}.</p>}
+
                   {/* Items List */}
                   <div className="space-y-3">
                     {order.items.map((item, idx) => (
@@ -349,7 +381,7 @@ export default function OrdersPage() {
                       >
                         <div className="flex items-center gap-3.5 min-w-0">
                           <img
-                            src={item.product.image}
+                            src={item.product.normalizedImage || item.product.image}
                             alt={item.product.title}
                             className="w-14 h-14 object-contain bg-white rounded-xl p-1 border border-slate-200 flex-shrink-0"
                           />
@@ -390,6 +422,10 @@ export default function OrdersPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
+                      {canRequestRefund && <button
+                        onClick={() => setRefundModalOrder(order)}
+                        className="px-3.5 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 font-extrabold rounded-xl text-xs flex items-center gap-1.5 transition-colors"
+                      ><RotateCcw className="w-3.5 h-3.5" /><span>Request Refund</span></button>}
                       {/* Track Live Order */}
                       <button
                         onClick={() => handleOpenTracking(order.id)}
@@ -462,6 +498,16 @@ export default function OrdersPage() {
         onClose={() => setReviewProduct(null)}
         onReviewSubmitted={(productId, rev) => {
           store.addReviewToProduct(productId, rev);
+        }}
+      />
+
+      <RefundRequestModal
+        order={refundModalOrder}
+        existingRefunds={refunds.filter((refund) => refund.orderId === refundModalOrder?.id)}
+        onClose={() => setRefundModalOrder(null)}
+        onCreated={(refund) => {
+          setRefunds((current) => [refund, ...current]);
+          setRefundModalOrder(null);
         }}
       />
 

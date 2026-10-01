@@ -20,6 +20,7 @@ interface WriteReviewModalProps {
     id?: string;
     title: string;
     image: string;
+    normalizedImage?: string;
     brand?: string;
     price?: number;
   } | null;
@@ -155,7 +156,7 @@ export default function WriteReviewModal({
             {/* Product Card Summary */}
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
               <img
-                src={product.image}
+                src={product.normalizedImage || product.image}
                 alt={product.title}
                 className="w-14 h-14 object-contain bg-white rounded-xl p-1 border border-slate-200"
               />

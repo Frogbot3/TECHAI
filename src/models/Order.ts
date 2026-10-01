@@ -16,6 +16,7 @@ export interface IOrder extends Document {
     originalPrice?: number;
     quantity: number;
     image: string;
+    normalizedImage?: string;
     selectedColor?: string;
     selectedSize?: string;
   }[];
@@ -48,6 +49,8 @@ export interface IOrder extends Document {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
+  refundStatus?: "NONE" | "PARTIALLY_REFUNDED" | "REFUNDED";
+  refundedAmountPaise?: number;
   status: "Placed" | "Processing" | "Shipped" | "Out for Delivery" | "Delivered";
   trackingNumber: string;
   courierName: string;
@@ -79,6 +82,7 @@ const OrderSchema = new Schema<IOrder>(
         originalPrice: Number,
         quantity: Number,
         image: String,
+        normalizedImage: String,
         selectedColor: String,
         selectedSize: String,
       },
@@ -120,6 +124,8 @@ const OrderSchema = new Schema<IOrder>(
     razorpayOrderId: { type: String, default: "", index: true },
     razorpayPaymentId: { type: String, default: "" },
     razorpaySignature: { type: String, default: "" },
+    refundStatus: { type: String, enum: ["NONE", "PARTIALLY_REFUNDED", "REFUNDED"], default: "NONE" },
+    refundedAmountPaise: { type: Number, default: 0, min: 0 },
     status: {
       type: String,
       enum: ["Placed", "Processing", "Shipped", "Out for Delivery", "Delivered"],
@@ -138,5 +144,9 @@ const OrderSchema = new Schema<IOrder>(
   },
   { timestamps: true }
 );
+
+OrderSchema.index({ trackingNumber: 1 }, { sparse: true });
+OrderSchema.index({ status: 1, createdAt: -1 });
+OrderSchema.index({ razorpayPaymentId: 1 }, { sparse: true });
 
 export default mongoose.models.Order || mongoose.model<IOrder>("Order", OrderSchema);

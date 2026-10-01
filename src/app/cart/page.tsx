@@ -142,7 +142,7 @@ export default function CartPage() {
                       className="w-20 h-20 rounded-xl bg-slate-50 border border-slate-100 p-2 flex items-center justify-center flex-shrink-0"
                     >
                       <img
-                        src={item.product.image}
+                        src={item.product.normalizedImage || item.product.image}
                         alt={item.product.title}
                         className="max-h-full max-w-full object-contain rounded-xl"
                       />

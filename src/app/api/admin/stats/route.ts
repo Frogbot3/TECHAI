@@ -10,9 +10,9 @@ export async function GET() {
     await connectToDatabase();
 
     const [orders, products, users] = await Promise.all([
-      Order.find({}).sort({ createdAt: -1 }),
-      Product.find({}).sort({ createdAt: -1 }),
-      User.find({}).sort({ createdAt: -1 }),
+      Order.find({}).sort({ createdAt: -1 }).limit(5000).lean(),
+      Product.find({}).sort({ createdAt: -1 }).limit(5000).lean(),
+      User.find({}).sort({ createdAt: -1 }).limit(5000).lean(),
     ]);
 
     const clientOrders = orders.map(toClientOrder);

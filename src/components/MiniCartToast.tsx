@@ -82,7 +82,7 @@ export default function MiniCartToast({
         {/* Product Preview - Fully responsive on phone */}
         <div className="flex items-center space-x-3 my-2 bg-slate-50/80 p-2 rounded-xl border border-slate-100">
           <img
-            src={product.image}
+            src={product.normalizedImage || product.image}
             alt={product.title}
             className="w-12 h-12 object-contain rounded-lg bg-white p-1 flex-shrink-0 border border-slate-200/60"
           />

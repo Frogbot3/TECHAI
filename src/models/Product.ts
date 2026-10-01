@@ -21,6 +21,11 @@ export interface IProduct extends Document {
   reviewCount: number;
   image: string;
   images?: string[];
+  originalImage?: string;
+  normalizedImage?: string;
+  imageFit?: "auto" | "standard" | "full-product";
+  imageScale?: "small" | "medium" | "large";
+  imagePosition?: "center" | "top" | "bottom";
   stock: number;
   isAiProduct: boolean;
   isTrending: boolean;
@@ -44,14 +49,19 @@ const ProductSchema = new Schema<IProduct>(
     title: { type: String, required: true },
     brand: { type: String, required: true },
     category: { type: String, required: true, index: true },
-    price: { type: Number, required: true },
-    originalPrice: { type: Number, required: true },
-    discountPercent: { type: Number, default: 0 },
-    rating: { type: Number, default: 4.5 },
-    reviewCount: { type: Number, default: 120 },
+    price: { type: Number, required: true, min: 0 },
+    originalPrice: { type: Number, required: true, min: 0 },
+    discountPercent: { type: Number, default: 0, min: 0, max: 100 },
+    rating: { type: Number, default: 4.5, min: 0, max: 5 },
+    reviewCount: { type: Number, default: 120, min: 0 },
     image: { type: String, required: true },
     images: [{ type: String }],
-    stock: { type: Number, required: true, default: 10 },
+    originalImage: { type: String, default: "" },
+    normalizedImage: { type: String, default: "" },
+    imageFit: { type: String, enum: ["auto", "standard", "full-product"], default: "auto" },
+    imageScale: { type: String, enum: ["small", "medium", "large"], default: "medium" },
+    imagePosition: { type: String, enum: ["center", "top", "bottom"], default: "center" },
+    stock: { type: Number, required: true, default: 10, min: 0 },
     isAiProduct: { type: Boolean, default: false },
     isTrending: { type: Boolean, default: false },
     isBestSeller: { type: Boolean, default: false },

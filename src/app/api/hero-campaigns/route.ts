@@ -34,9 +34,9 @@ const validateCampaign = (body: Record<string, unknown>) => {
 };
 
 const getCampaignsWithProducts = async (filter: Record<string, unknown>) => {
-  const campaigns = await HeroCampaign.find(filter).sort({ priority: -1, displayOrder: 1, startAt: 1 });
+  const campaigns = await HeroCampaign.find(filter).sort({ priority: -1, displayOrder: 1, startAt: 1 }).limit(100).lean();
   const productIds = campaigns.map((campaign) => campaign.productId);
-  const products = await Product.find({ productId: { $in: productIds } });
+  const products = await Product.find({ productId: { $in: productIds } }).lean();
   const productsById = new Map(products.map((product) => [product.productId, toClientProduct(product)]));
   return campaigns.map((campaign) => toClientHeroCampaign(campaign, productsById.get(campaign.productId)));
 };

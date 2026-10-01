@@ -137,6 +137,8 @@ export async function POST(req: Request) {
           reviewCount: Number(product.reviewCount || 0),
           image: product.image,
           images: product.images,
+          originalImage: product.originalImage,
+          normalizedImage: product.normalizedImage,
           stock: Number(product.stock),
           description: product.description,
           features: product.features || [],
@@ -180,6 +182,7 @@ export async function POST(req: Request) {
       originalPrice: item.product.originalPrice,
       quantity: item.quantity,
       image: item.product.image,
+      normalizedImage: item.product.normalizedImage,
       selectedColor: item.selectedColor || "",
       selectedSize: item.selectedSize || "",
     }));
@@ -271,6 +274,8 @@ export async function GET(req: Request) {
     const customerId = searchParams.get("customerId");
     const email = searchParams.get("email");
     const phone = searchParams.get("phone");
+    const page = Math.max(1, Number(searchParams.get("page") || 1));
+    const limit = Math.min(500, Math.max(1, Number(searchParams.get("limit") || 200)));
 
     await connectToDatabase();
 
@@ -298,7 +303,7 @@ export async function GET(req: Request) {
         if (phone) orConditions.push({ userPhone: phone }, { "shippingAddress.phone": phone });
         filter = { $or: orConditions };
       }
-      const orders = await Order.find(filter).sort({ createdAt: -1 }).limit(500);
+      const orders = await Order.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
       return NextResponse.json({ success: true, count: orders.length, orders: orders.map(toClientOrder) });
     }
 
@@ -342,7 +347,7 @@ export async function GET(req: Request) {
         filter = { $and: [{ $or: userConditions }, { $or: searchOr }] };
       }
 
-      const orders = await Order.find(filter).sort({ createdAt: -1 }).limit(200);
+      const orders = await Order.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
       return NextResponse.json({ success: true, count: orders.length, orders: orders.map(toClientOrder) });
     }
 

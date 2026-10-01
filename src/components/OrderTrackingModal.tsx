@@ -337,7 +337,7 @@ export default function OrderTrackingModal({
                         <div className="mt-3 divide-y divide-slate-100">
                           {selectedOrder.items.map((item) => (
                             <div key={`${item.product.id}-${item.quantity}`} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                              <TrackingItemThumbnail src={item.product.image} alt={item.product.title} />
+                              <TrackingItemThumbnail src={item.product.normalizedImage || item.product.image} alt={item.product.title} />
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-xs font-extrabold text-slate-900">{item.product.title}</p>
                                 <p className="mt-1 text-[11px] text-slate-500">Qty: {item.quantity} · ₹{item.product.price.toLocaleString("en-IN")}</p>

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/techai";
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "techai";
 
 if (!MONGODB_URI) {
   console.warn("⚠️ MONGODB_URI environment variable is not defined. Falling back to local MongoDB.");
@@ -27,10 +28,16 @@ export async function connectToDatabase() {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      dbName: MONGODB_DB_NAME,
+      maxPoolSize: 10,
+      minPoolSize: 0,
+      maxIdleTimeMS: 10000,
+      serverSelectionTimeoutMS: 10000,
     };
 
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => {
       console.log("✅ MongoDB Connected Successfully to TECH AI Database");
+      console.log(`MongoDB database selected: ${MONGODB_DB_NAME}`);
       return m;
     }).catch((err) => {
       console.warn("⚠️ MongoDB connection error:", err.message);

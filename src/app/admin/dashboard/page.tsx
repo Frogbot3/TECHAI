@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import TechAiLogo from "@/components/TechAiLogo";
 import HeroCampaignManager from "@/components/HeroCampaignManager";
+import RefundManagement from "@/components/RefundManagement";
 import { Product, Order, OrderStatus, User, Review } from "@/lib/types";
 import { CATEGORIES } from "@/lib/data";
 import { generateOrderInvoice } from "@/lib/generateInvoice";
 import { exportSingleOrderToExcel, exportAllOrdersToExcel } from "@/lib/exportOrderExcel";
 import { exportAnalyticsToPdf, exportAnalyticsToExcel } from "@/lib/exportAnalyticsReport";
+import { normalizeProductImage } from "@/lib/normalizeProductImage";
 import * as XLSX from "xlsx";
 import {
   Package,
@@ -50,13 +52,14 @@ import {
   Tag,
   Gift,
   HelpCircle,
-  Eye
+  Eye,
+  RotateCcw
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<"ANALYTICS" | "CAMPAIGNS" | "PRODUCTS" | "ORDERS" | "CUSTOMERS">("ANALYTICS");
+  const [activeTab, setActiveTab] = useState<"ANALYTICS" | "CAMPAIGNS" | "REFUNDS" | "PRODUCTS" | "ORDERS" | "CUSTOMERS">("ANALYTICS");
   const [productSearch, setProductSearch] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
@@ -98,6 +101,11 @@ export default function AdminDashboardPage() {
     heroOfferText: "",
     image: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80",
     images: ["https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80"],
+    originalImage: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80",
+    normalizedImage: "",
+    imageFit: "auto" as "auto" | "standard" | "full-product",
+    imageScale: "medium" as "small" | "medium" | "large",
+    imagePosition: "center" as "center" | "top" | "bottom",
     description: "High-performance smart device designed for premium speed, durability, and seamless convenience.",
     features: ["Intelligent Next-Gen Processing", "Fast Charging & Long Battery", "100% Genuine Build"],
     specs: { "Warranty": "1 Year Official Brand Warranty", "Connectivity": "Bluetooth & Type-C" } as Record<string, string>,
@@ -125,6 +133,10 @@ export default function AdminDashboardPage() {
   const [refillAmount, setRefillAmount] = useState(10);
 
   const [authChecking, setAuthChecking] = useState(true);
+  const [isNormalizingImage, setIsNormalizingImage] = useState(false);
+  const [normalizationMessage, setNormalizationMessage] = useState("");
+  const [normalizingProductId, setNormalizingProductId] = useState<string | null>(null);
+  const [isNormalizingAll, setIsNormalizingAll] = useState(false);
 
   // Fetch real-time live statistics and orders from MongoDB
   const fetchLiveData = useCallback(async (showIndicator = false) => {
@@ -251,6 +263,11 @@ export default function AdminDashboardPage() {
       heroOfferText: "Buy 3 Get Small Gift Free",
       image: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80",
       images: ["https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80"],
+      originalImage: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80",
+      normalizedImage: "",
+      imageFit: "auto",
+      imageScale: "medium",
+      imagePosition: "center",
       description: "High-performance smart device designed for premium speed, durability, and seamless convenience.",
       features: ["Intelligent Next-Gen Processing", "Fast Charging & Long Battery", "100% Genuine Build"],
       specs: { "Warranty": "1 Year Official Brand Warranty", "Connectivity": "Bluetooth & Type-C" },
@@ -283,6 +300,11 @@ export default function AdminDashboardPage() {
       heroOfferText: product.heroOfferText || "Buy 3 Get Small Gift Free",
       image: product.image,
       images: existingImages,
+      originalImage: product.originalImage || product.image,
+      normalizedImage: product.normalizedImage || "",
+      imageFit: product.imageFit || "auto",
+      imageScale: product.imageScale || "medium",
+      imagePosition: product.imagePosition || "center",
       description: product.description || "",
       features: product.features || [],
       specs: product.specs || {},
@@ -315,6 +337,8 @@ export default function AdminDashboardPage() {
               ...prev,
               images: updatedImages,
               image: updatedImages[0],
+              originalImage: prev.images.length === 0 ? updatedImages[0] : prev.originalImage,
+              normalizedImage: prev.images.length === 0 ? "" : prev.normalizedImage,
             };
           });
         }
@@ -334,6 +358,8 @@ export default function AdminDashboardPage() {
         ...prev,
         images: filtered,
         image: newPrimary,
+        originalImage: newPrimary,
+        normalizedImage: "",
       };
     });
   };
@@ -348,8 +374,75 @@ export default function AdminDashboardPage() {
         ...prev,
         images: reordered,
         image: reordered[0],
+        originalImage: reordered[0],
+        normalizedImage: "",
       };
     });
+  };
+
+  const handleNormalizeFormImage = async () => {
+    const source = productForm.originalImage || productForm.images[0] || productForm.image;
+    if (!source) return;
+
+    setIsNormalizingImage(true);
+    setNormalizationMessage("");
+    try {
+      const normalized = await normalizeProductImage(source, {
+        fit: productForm.imageFit,
+        scale: productForm.imageScale,
+        position: productForm.imagePosition,
+      });
+      setProductForm((prev) => ({ ...prev, originalImage: source, normalizedImage: normalized }));
+      setNormalizationMessage("Normalized preview ready. Save the product to keep it.");
+    } catch (error) {
+      setNormalizationMessage("This image cannot be normalized in the browser. The original will remain available.");
+    } finally {
+      setIsNormalizingImage(false);
+    }
+  };
+
+  const normalizeProductForCatalog = async (product: Product) => {
+    const source = product.originalImage || product.image;
+    if (!source) return false;
+
+    try {
+      const normalized = await normalizeProductImage(source, {
+        fit: product.imageFit || "auto",
+        scale: product.imageScale || "medium",
+        position: product.imagePosition || "center",
+      });
+      const response = await fetch(`/api/products/${product.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originalImage: source,
+          normalizedImage: normalized,
+          imageFit: product.imageFit || "auto",
+          imageScale: product.imageScale || "medium",
+          imagePosition: product.imagePosition || "center",
+        }),
+      });
+      const data = await response.json();
+      if (!data.success) return false;
+      setProducts((prev) => prev.map((item) => item.id === product.id ? data.product : item));
+      return true;
+    } catch (error) {
+      console.error("Failed to normalize product image:", error);
+      return false;
+    }
+  };
+
+  const handleNormalizeSingleProduct = async (product: Product) => {
+    setNormalizingProductId(product.id);
+    await normalizeProductForCatalog(product);
+    setNormalizingProductId(null);
+  };
+
+  const handleNormalizeAllProducts = async () => {
+    if (!products.length || !confirm(`Normalize catalog images for all ${products.length} products? Originals will be preserved.`)) return;
+    setIsNormalizingAll(true);
+    for (const product of products) await normalizeProductForCatalog(product);
+    setIsNormalizingAll(false);
   };
 
   // Add Spec key-value pair
@@ -402,6 +495,8 @@ export default function AdminDashboardPage() {
       discountPercent: discount,
       image: productForm.images[0] || productForm.image,
       images: productForm.images.length > 0 ? productForm.images : [productForm.image],
+      originalImage: productForm.originalImage || productForm.images[0] || productForm.image,
+      normalizedImage: productForm.normalizedImage || "",
     };
 
     try {
@@ -654,6 +749,7 @@ export default function AdminDashboardPage() {
   const tabs = [
     { id: "ANALYTICS" as const, label: "Overview & Analytics", icon: BarChart3 },
     { id: "CAMPAIGNS" as const, label: "Hero Campaigns", icon: Sparkles },
+    { id: "REFUNDS" as const, label: "Refund Management", icon: RotateCcw },
     { id: "PRODUCTS" as const, label: `Products & Stock (${products.length})`, icon: Package },
     { id: "ORDERS" as const, label: `Live Orders (${orders.length})`, icon: Truck },
     { id: "CUSTOMERS" as const, label: `Customers (${customers.length})`, icon: Users },
@@ -833,6 +929,19 @@ export default function AdminDashboardPage() {
               className="rounded-3xl border border-slate-800 bg-slate-900/60 p-4 shadow-xl sm:p-6"
             >
               <HeroCampaignManager products={products} />
+            </motion.div>
+          )}
+
+          {activeTab === "REFUNDS" && (
+            <motion.div
+              key="refunds"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="rounded-3xl border border-slate-800 bg-slate-900/60 p-4 shadow-xl sm:p-6"
+            >
+              <RefundManagement />
             </motion.div>
           )}
 
@@ -1024,6 +1133,15 @@ export default function AdminDashboardPage() {
                   <span className="text-slate-400 font-bold">{filteredProducts.length} Product(s)</span>
                   <button
                     type="button"
+                    onClick={handleNormalizeAllProducts}
+                    disabled={isNormalizingAll || products.length === 0}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-cyan-300 font-extrabold rounded-xl transition cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isNormalizingAll ? "animate-spin" : ""}`} />
+                    {isNormalizingAll ? "Normalizing..." : "Normalize Images"}
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleOpenAddProduct}
                     className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl transition cursor-pointer"
                   >
@@ -1050,7 +1168,7 @@ export default function AdminDashboardPage() {
                       <tr key={product.id} className="hover:bg-slate-800/40 transition-colors">
                         <td className="py-3 px-4 flex items-center space-x-3">
                           <img
-                            src={product.image}
+                            src={product.normalizedImage || product.image}
                             alt={product.title}
                             className="w-11 h-11 object-contain bg-white rounded-xl p-1 border border-slate-700 flex-shrink-0"
                           />
@@ -1133,6 +1251,15 @@ export default function AdminDashboardPage() {
                               title="Edit Product & Hero Offers"
                             >
                               <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleNormalizeSingleProduct(product)}
+                              disabled={normalizingProductId === product.id}
+                              className="p-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-cyan-300 rounded-lg transition cursor-pointer"
+                              title="Normalize catalog image"
+                            >
+                              <RefreshCw className={`w-3.5 h-3.5 ${normalizingProductId === product.id ? "animate-spin" : ""}`} />
                             </button>
                             <button
                               type="button"
@@ -1550,6 +1677,8 @@ export default function AdminDashboardPage() {
                               ...prev,
                               images: [...prev.images, val],
                               image: prev.images.length === 0 ? val : prev.image,
+                              originalImage: prev.images.length === 0 ? val : prev.originalImage,
+                              normalizedImage: prev.images.length === 0 ? "" : prev.normalizedImage,
                             }));
                             (e.target as HTMLInputElement).value = "";
                           }
@@ -1594,6 +1723,82 @@ export default function AdminDashboardPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+
+                {/* Normalized catalog image preview and optional controls */}
+                <div className="border-t border-slate-800 pt-3 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-white font-extrabold">Catalog Image Preview</p>
+                      <p className="text-[10px] text-slate-500">Originals stay untouched; cards use the normalized square asset when available.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleNormalizeFormImage}
+                        disabled={isNormalizingImage}
+                        className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg text-[11px] font-extrabold inline-flex items-center gap-1.5"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isNormalizingImage ? "animate-spin" : ""}`} />
+                        {isNormalizingImage ? "Normalizing..." : "Normalize Image"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProductForm((prev) => ({ ...prev, normalizedImage: "" }))}
+                        disabled={!productForm.normalizedImage}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-lg text-[11px] font-extrabold"
+                      >
+                        Use Original
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 max-w-md">
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Original Preview</span>
+                      <div className="aspect-square rounded-xl bg-slate-900 border border-slate-700 p-2 flex items-center justify-center overflow-hidden">
+                        <img src={productForm.originalImage || productForm.image} alt="Original product preview" className="max-h-full max-w-full object-contain" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase tracking-wider text-cyan-400 font-bold">Normalized Preview</span>
+                      <div className="aspect-square rounded-xl bg-slate-900 border border-cyan-700/60 p-2 flex items-center justify-center overflow-hidden">
+                        {productForm.normalizedImage ? (
+                          <img src={productForm.normalizedImage} alt="Normalized product preview" className="h-full w-full object-contain" />
+                        ) : (
+                          <span className="text-[10px] text-slate-600 text-center">Click Normalize Image to generate the catalog asset</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 max-w-2xl">
+                    <label className="space-y-1 text-[10px] text-slate-400 font-bold">
+                      Image Fit
+                      <select value={productForm.imageFit} onChange={(e) => setProductForm((prev) => ({ ...prev, imageFit: e.target.value as typeof prev.imageFit, normalizedImage: "" }))} className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white">
+                        <option value="auto">Auto</option>
+                        <option value="standard">Standard</option>
+                        <option value="full-product">Full Product</option>
+                      </select>
+                    </label>
+                    <label className="space-y-1 text-[10px] text-slate-400 font-bold">
+                      Image Scale
+                      <select value={productForm.imageScale} onChange={(e) => setProductForm((prev) => ({ ...prev, imageScale: e.target.value as typeof prev.imageScale, normalizedImage: "" }))} className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white">
+                        <option value="small">Small</option>
+                        <option value="medium">Medium</option>
+                        <option value="large">Large</option>
+                      </select>
+                    </label>
+                    <label className="space-y-1 text-[10px] text-slate-400 font-bold">
+                      Image Position
+                      <select value={productForm.imagePosition} onChange={(e) => setProductForm((prev) => ({ ...prev, imagePosition: e.target.value as typeof prev.imagePosition, normalizedImage: "" }))} className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white">
+                        <option value="center">Center</option>
+                        <option value="top">Top</option>
+                        <option value="bottom">Bottom</option>
+                      </select>
+                    </label>
+                  </div>
+                  {normalizationMessage && <p className="text-[11px] text-cyan-300">{normalizationMessage}</p>}
                 </div>
               </div>
 

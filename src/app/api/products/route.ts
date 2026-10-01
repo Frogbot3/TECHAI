@@ -22,6 +22,11 @@ const seedOperations = () =>
           reviewCount: p.reviewCount,
           image: p.image,
           images: p.images || [p.image],
+          originalImage: p.originalImage || p.image,
+          normalizedImage: p.normalizedImage || "",
+          imageFit: p.imageFit || "auto",
+          imageScale: p.imageScale || "medium",
+          imagePosition: p.imagePosition || "center",
           stock: p.stock,
           isAiProduct: !!p.isAiProduct,
           isTrending: !!p.isTrending,
@@ -40,17 +45,23 @@ const seedOperations = () =>
     },
   }));
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await connectToDatabase();
 
     // Keep the database additive so new AI catalog products appear for existing stores.
     await Product.bulkWrite(seedOperations(), { ordered: false });
 
-    const products = await Product.find({}).sort({ createdAt: -1 });
+    const searchParams = new URL(req.url).searchParams;
+    const page = Math.max(1, Number(searchParams.get("page") || 1));
+    const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit") || 100)));
+    const [total, products] = await Promise.all([
+      Product.countDocuments({}),
+      Product.find({}).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+    ]);
     const clientProducts = products.map(toClientProduct);
 
-    return NextResponse.json({ success: true, count: clientProducts.length, products: clientProducts });
+    return NextResponse.json({ success: true, count: clientProducts.length, total, page, limit, totalPages: Math.ceil(total / limit), products: clientProducts });
   } catch (error) {
     return NextResponse.json({
       success: true,
@@ -83,6 +94,11 @@ export async function POST(req: Request) {
       reviewCount: Number(body.reviewCount || 0),
       image: images[0],
       images: images,
+      originalImage: body.originalImage || images[0],
+      normalizedImage: body.normalizedImage || "",
+      imageFit: body.imageFit || "auto",
+      imageScale: body.imageScale || "medium",
+      imagePosition: body.imagePosition || "center",
       stock: Number(body.stock || 0),
       isAiProduct: !!body.isAiProduct,
       isTrending: !!body.isTrending,

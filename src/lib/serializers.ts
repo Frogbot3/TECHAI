@@ -1,4 +1,4 @@
-import { CartItem, HeroCampaign, Order, OrderStatus, Product, User } from "./types";
+import { CartItem, HeroCampaign, Order, OrderStatus, Product, Refund, User } from "./types";
 
 const toPlain = (value: any) => {
   if (!value) return value;
@@ -33,6 +33,11 @@ export function toClientProduct(value: any): Product {
     reviewCount: Number(product.reviewCount || 0),
     image: product.image || (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900&auto=format&fit=crop&q=80"),
     images: Array.isArray(product.images) && product.images.length > 0 ? product.images : [product.image || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900&auto=format&fit=crop&q=80"],
+    originalImage: product.originalImage || product.image || "",
+    normalizedImage: product.normalizedImage || "",
+    imageFit: product.imageFit || "auto",
+    imageScale: product.imageScale || "medium",
+    imagePosition: product.imagePosition || "center",
     stock: Number(product.stock || 0),
     isAiProduct: Boolean(product.isAiProduct),
     isTrending: Boolean(product.isTrending),
@@ -111,6 +116,8 @@ export function normalizeCartItem(value: any): CartItem {
       price: value.price,
       originalPrice: value.originalPrice || value.price,
       image: value.image,
+      originalImage: value.originalImage || value.image || "",
+      normalizedImage: value.normalizedImage || "",
       stock: value.stock || 0,
     }),
     quantity: Number(value.quantity || 1),
@@ -146,6 +153,8 @@ export function toClientOrder(value: any): Order {
     razorpayOrderId: order.razorpayOrderId || undefined,
     razorpayPaymentId: order.razorpayPaymentId || undefined,
     razorpaySignature: order.razorpaySignature || undefined,
+    refundStatus: order.refundStatus || "NONE",
+    refundedAmountPaise: Number(order.refundedAmountPaise || 0),
     status: order.status || "Placed",
     trackingNumber: order.trackingNumber || "",
     courierName: order.courierName || "Tech AI Logistics",
@@ -159,6 +168,53 @@ export function toClientOrder(value: any): Order {
           note: entry.note || "Order status updated",
         }))
       : [],
+  };
+}
+
+export function toClientRefund(value: any): Refund {
+  const refund = toPlain(value);
+  return {
+    id: refund.refundId || refund.id || refund._id?.toString() || `refund-${Date.now()}`,
+    orderId: refund.orderId || "",
+    customerId: refund.customerId || "",
+    customerName: refund.customerName || "Customer",
+    customerEmail: refund.customerEmail || "",
+    customerPhone: refund.customerPhone || "",
+    paymentId: refund.paymentId || "",
+    razorpayRefundId: refund.razorpayRefundId || undefined,
+    items: Array.isArray(refund.items) ? refund.items.map((item: any) => ({
+      itemKey: item.itemKey || `${refund.orderId}:${item.productId}`,
+      productId: item.productId || "",
+      title: item.title || "Product",
+      quantity: Number(item.quantity || 0),
+      unitAmountPaise: Number(item.unitAmountPaise || 0),
+      amountPaise: Number(item.amountPaise || 0),
+    })) : [],
+    requestedAmountPaise: Number(refund.requestedAmountPaise || 0),
+    approvedAmountPaise: Number(refund.approvedAmountPaise || 0),
+    refundedAmountPaise: Number(refund.refundedAmountPaise || 0),
+    refundableAmountPaise: Number(refund.refundableAmountPaise || 0),
+    currency: refund.currency || "INR",
+    reason: refund.reason || "Other",
+    description: refund.description || "",
+    evidenceUrls: Array.isArray(refund.evidenceUrls) ? refund.evidenceUrls : [],
+    status: refund.status || "REQUESTED",
+    adminRemarks: refund.adminRemarks || "",
+    internalNotes: refund.internalNotes || "",
+    failureReason: refund.failureReason || "",
+    reviewedBy: refund.reviewedBy || undefined,
+    reviewedAt: refund.reviewedAt ? dateToString(refund.reviewedAt) : undefined,
+    processedAt: refund.processedAt ? dateToString(refund.processedAt) : undefined,
+    createdAt: dateToString(refund.createdAt),
+    updatedAt: dateToString(refund.updatedAt),
+    deliveryDate: refund.deliveryDate ? dateToString(refund.deliveryDate) : undefined,
+    history: Array.isArray(refund.history) ? refund.history.map((entry: any) => ({
+      status: entry.status || refund.status || "REQUESTED",
+      note: entry.note || "Refund event recorded",
+      actorType: entry.actorType || "SYSTEM",
+      actorId: entry.actorId || undefined,
+      timestamp: dateToString(entry.timestamp),
+    })) : [],
   };
 }
 
