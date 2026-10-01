@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, ChevronLeft, ChevronRight, ShieldCheck, Sparkles, Tag } from "lucide-react";
-import { Product } from "@/lib/types";
+import { HeroCampaign, Product } from "@/lib/types";
 
 interface HeroCarouselProps {
   products?: Product[];
+  campaigns?: HeroCampaign[];
   onExploreCategory: (category: string) => void;
   onSelectProduct?: (product: Product) => void;
+  onOpenProductPage?: (product: Product) => void;
 }
 
 interface HeroSlideItem {
@@ -29,6 +31,10 @@ interface HeroSlideItem {
   ctaHover: string;
   ctaArrow: string;
   theme: HeroTheme;
+  campaignId?: string;
+  verified?: boolean;
+  backgroundStyle?: "solid" | "gradient";
+  backgroundValue?: string;
 }
 
 interface HeroTheme {
@@ -244,12 +250,50 @@ const fallbackCompanionDeals: CompanionDeal[] = [
   },
 ];
 
-export default function HeroCarousel({ products = [], onExploreCategory, onSelectProduct }: HeroCarouselProps) {
+export default function HeroCarousel({ campaigns = [], products = [], onExploreCategory, onSelectProduct, onOpenProductPage }: HeroCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const reduceMotion = useReducedMotion();
+  const resumeTimerRef = useRef<number | null>(null);
+
+  const pauseForInteraction = (resume = true) => {
+    setIsPaused(true);
+    if (resumeTimerRef.current) window.clearTimeout(resumeTimerRef.current);
+    if (resume) resumeTimerRef.current = window.setTimeout(() => setIsPaused(false), 7000);
+  };
 
   const allSlides = useMemo<HeroSlideItem[]>(() => {
+    const campaignSlides: HeroSlideItem[] = campaigns.flatMap((campaign) => {
+        const product = campaign.product || products.find((item) => item.id === campaign.productId);
+        if (!product) return [];
+        const theme = getHeroTheme(product.category, campaign.titleOverride || product.title);
+        return [{
+          id: campaign.id,
+          campaignId: campaign.id,
+          badge: campaign.badge,
+          title: campaign.titleOverride || product.title,
+          subtitle: campaign.subtitle || product.description,
+          priceLabel: "Special Offer Price",
+          price: `INR ${campaign.price.toLocaleString("en-IN")}`,
+          originalPrice: campaign.originalPrice > campaign.price ? `INR ${campaign.originalPrice.toLocaleString("en-IN")}` : undefined,
+          offer: campaign.offerText,
+          category: product.category,
+          cta: campaign.ctaText,
+          image: campaign.imageOverride || product.image,
+          productRef: product,
+          badgeStyle: theme.badge,
+          ctaBg: theme.cta,
+          ctaHover: theme.link,
+          ctaArrow: theme.arrow,
+          theme,
+          verified: campaign.verified,
+          backgroundStyle: campaign.backgroundStyle,
+          backgroundValue: campaign.backgroundValue,
+        } satisfies HeroSlideItem];
+      });
+
+    if (campaignSlides.length > 0) return campaignSlides;
+
     const featuredFromAdmin = products
       .filter((product) => product.isHeroFeatured)
       .map((product) => ({
@@ -270,10 +314,11 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
         ctaHover: getHeroTheme(product.category, product.title).link,
         ctaArrow: getHeroTheme(product.category, product.title).arrow,
         theme: getHeroTheme(product.category, product.title),
+        verified: false,
       }));
 
     return featuredFromAdmin.length > 0 ? [...featuredFromAdmin, ...DEFAULT_HERO_SLIDES] : DEFAULT_HERO_SLIDES;
-  }, [products]);
+  }, [campaigns, products]);
 
   const activeIndex = currentSlide >= allSlides.length ? 0 : currentSlide;
   const slide = allSlides[activeIndex] || DEFAULT_HERO_SLIDES[0];
@@ -310,13 +355,40 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
     return () => window.clearInterval(timer);
   }, [isPaused, allSlides.length]);
 
+  useEffect(() => {
+    const handleVisibilityChange = () => setIsPaused(document.hidden);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (resumeTimerRef.current) window.clearTimeout(resumeTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!slide.campaignId) return;
+    const storageKey = `techai_campaign_impression_${slide.campaignId}`;
+    try {
+      if (window.sessionStorage.getItem(storageKey)) return;
+      window.sessionStorage.setItem(storageKey, "1");
+    } catch {
+      // Analytics should never block the hero.
+    }
+    fetch("/api/hero-campaigns/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ campaignId: slide.campaignId, event: "impression" }),
+    }).catch(() => {});
+  }, [slide.campaignId]);
+
   const changeSlide = (direction: "next" | "previous") => {
+    pauseForInteraction();
     setCurrentSlide((current) => direction === "next" ? (current + 1) % allSlides.length : (current - 1 + allSlides.length) % allSlides.length);
   };
 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    pauseForInteraction(false);
     setTouchStartX(e.touches[0].clientX);
   };
 
@@ -328,15 +400,59 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
       changeSlide("next");
     } else if (diff < -45) {
       changeSlide("previous");
+    } else {
+      pauseForInteraction();
     }
     setTouchStartX(null);
   };
 
+  const handleSlideAction = () => {
+    if (slide.campaignId) {
+      fetch("/api/hero-campaigns/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: slide.campaignId, event: "click" }),
+      }).catch(() => {});
+    }
+    if (slide.campaignId && slide.productRef && (onOpenProductPage || onSelectProduct)) {
+      fetch("/api/hero-campaigns/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: slide.campaignId, event: "product-click" }),
+      }).catch(() => {});
+    }
+    if (slide.productRef && onOpenProductPage) {
+      onOpenProductPage(slide.productRef);
+      return;
+    }
+    if (slide.productRef && onSelectProduct) {
+      onSelectProduct(slide.productRef);
+      return;
+    }
+    onExploreCategory(slide.category);
+  };
+
+  const customBackgroundStyle = slide.backgroundValue
+    ? slide.backgroundStyle === "gradient"
+      ? { backgroundImage: slide.backgroundValue }
+      : { backgroundColor: slide.backgroundValue }
+    : undefined;
+
   return (
-    <section className="px-2.5 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-1 sm:pb-2 font-sans" aria-label="Featured Offers">
+    <section
+      className="px-2.5 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-1 sm:pb-2 font-sans"
+      aria-label="Featured Offers"
+      aria-roledescription="carousel"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowRight") changeSlide("next");
+        if (event.key === "ArrowLeft") changeSlide("previous");
+      }}
+    >
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
         <div
-          className={`relative min-h-[190px] sm:min-h-[360px] lg:min-h-[342px] overflow-hidden rounded-2xl border text-slate-950 shadow-md sm:shadow-lg shadow-slate-950/10 p-3 sm:p-6 lg:col-span-8 flex flex-col justify-between transition-colors duration-500 ${slide.theme.container}`}
+          className={`relative min-h-[210px] sm:min-h-[360px] lg:min-h-[342px] overflow-hidden rounded-2xl border text-slate-950 shadow-md sm:shadow-lg shadow-slate-950/10 p-3 sm:p-6 lg:col-span-8 flex flex-col justify-between transition-colors duration-500 ${slide.theme.container}`}
+          style={customBackgroundStyle}
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
           onFocusCapture={() => setIsPaused(true)}
@@ -354,31 +470,31 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
               animate={{ opacity: 1, x: 0 }}
               exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12 }}
               transition={{ duration: reduceMotion ? 0.15 : 0.25 }}
-              className="relative grid grid-cols-12 items-center gap-2 sm:gap-6 my-auto"
+              className="relative grid grid-cols-[1.1fr_0.9fr] sm:grid-cols-12 items-center gap-2 sm:gap-6 my-auto"
             >
-              <div className="col-span-7 space-y-1 sm:space-y-3 min-w-0">
+              <div className="sm:col-span-7 space-y-1 sm:space-y-3 min-w-0">
                 <span className={`inline-flex max-w-full items-center gap-1 sm:gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border text-[9px] sm:text-[11px] font-extrabold uppercase tracking-wider ${slide.badgeStyle}`}>
                   <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
                   <span className="truncate">{slide.badge}</span>
                 </span>
-                <h1 className={`text-xs sm:text-2xl lg:text-3xl font-black leading-snug tracking-tight line-clamp-2 ${slide.theme.heading}`}>{slide.title}</h1>
+                <h1 className={`text-[13px] sm:text-2xl lg:text-3xl font-black leading-tight tracking-tight line-clamp-2 ${slide.theme.heading}`}>{slide.title}</h1>
                 <p className={`hidden sm:block text-xs sm:text-sm font-medium leading-relaxed line-clamp-2 ${slide.theme.body}`}>{slide.subtitle}</p>
                 <div className="pt-0.5 flex flex-wrap items-baseline gap-1 sm:gap-2">
                   <span className={`hidden sm:inline text-xs font-bold ${slide.theme.label}`}>{slide.priceLabel}:</span>
                   <span className={`text-sm sm:text-2xl lg:text-3xl font-black tracking-tight ${slide.theme.price}`}>{slide.price}</span>
                   {slide.originalPrice && <span className={`text-[10px] sm:text-sm font-medium line-through ${slide.theme.original}`}>{slide.originalPrice}</span>}
-                  <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 py-0.5 rounded-md bg-rose-600 text-white font-extrabold text-[8px] sm:text-[11px] shadow-sm"><Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" /><span className="truncate max-w-[85px] sm:max-w-none">{slide.offer}</span></span>
+                  <span className="inline-flex min-w-0 max-w-full items-center gap-0.5 sm:gap-1 px-1.5 py-0.5 rounded-md bg-rose-600 text-white font-extrabold text-[8px] sm:text-[11px] shadow-sm" title={slide.offer}><Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" /><span className="truncate max-w-[115px] sm:max-w-[260px]">{slide.offer}</span></span>
                 </div>
                 <div className="pt-0.5 sm:pt-1.5 flex flex-wrap items-center gap-2 sm:gap-3">
-                  <button type="button" onClick={() => slide.productRef && onSelectProduct ? onSelectProduct(slide.productRef) : onExploreCategory(slide.category)} className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 h-7 sm:h-10 px-3 sm:px-5 rounded-lg sm:rounded-xl ${slide.ctaBg} ${slide.theme.ctaText} font-extrabold text-[11px] sm:text-sm transition-all shadow-sm active:scale-95 cursor-pointer`}><span>{slide.cta}</span><ArrowRight className={`w-3 h-3 sm:w-4 sm:h-4 ${slide.ctaArrow}`} /></button>
+                  <button type="button" onClick={handleSlideAction} className={`inline-flex min-h-9 items-center justify-center gap-1.5 sm:gap-2 h-9 sm:h-10 px-3 sm:px-5 rounded-lg sm:rounded-xl ${slide.ctaBg} ${slide.theme.ctaText} font-extrabold text-[11px] sm:text-sm transition-all shadow-sm active:scale-95 cursor-pointer`}><span className="truncate max-w-[135px]">{slide.cta}</span><ArrowRight className={`w-3 h-3 sm:w-4 sm:h-4 ${slide.ctaArrow}`} /></button>
                   <button type="button" onClick={() => onExploreCategory(slide.category)} className={`hidden sm:inline-flex items-center justify-center text-xs sm:text-sm font-bold ${slide.ctaHover} underline decoration-slate-400 underline-offset-4 transition cursor-pointer py-1`}>Browse {slide.category}</button>
                 </div>
               </div>
 
-              <div className="col-span-5 flex items-center justify-center">
+              <div className="sm:col-span-5 flex items-center justify-center min-w-0">
                 <div className={`relative w-full aspect-square max-w-[130px] sm:max-w-none sm:w-44 sm:h-44 lg:w-48 lg:h-48 rounded-xl sm:rounded-2xl border shadow-md sm:shadow-xl p-1.5 sm:p-3 flex items-center justify-center overflow-hidden group ${slide.theme.media}`}>
-                  <img src={slide.image} alt={slide.title} className="w-full h-full object-contain rounded-lg sm:rounded-xl drop-shadow-sm transition-transform duration-300 group-hover:scale-105" loading="eager" />
-                  <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-emerald-950/90 text-emerald-300 text-[8px] sm:text-[10px] font-bold px-1 sm:px-1.5 py-0.5 rounded border border-emerald-700/70 flex items-center gap-0.5"><ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3" /><span>Verified</span></div>
+                  <img src={slide.image} alt={slide.title} className="w-full h-full object-contain rounded-lg sm:rounded-xl drop-shadow-sm transition-transform duration-300 group-hover:scale-105" loading={activeIndex === 0 ? "eager" : "lazy"} decoding="async" onError={(event) => { if (!event.currentTarget.dataset.fallbackApplied) { event.currentTarget.dataset.fallbackApplied = "true"; event.currentTarget.src = slide.productRef?.images?.[0] || slide.productRef?.image || "/generated-products/ai-orbit-camera.png"; } }} />
+                  {slide.verified && <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-emerald-950/90 text-emerald-300 text-[8px] sm:text-[10px] font-bold px-1 sm:px-1.5 py-0.5 rounded border border-emerald-700/70 flex items-center gap-0.5"><ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3" /><span>Verified</span></div>}
                 </div>
               </div>
             </motion.div>

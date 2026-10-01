@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CartItem, Order, OrderStatus, PaymentDetails, PaymentMethod, Product, ShippingAddress, User } from "./types";
+import { CartItem, HeroCampaign, Order, OrderStatus, PaymentDetails, PaymentMethod, Product, ShippingAddress, User } from "./types";
 import { INITIAL_PRODUCTS } from "./data";
 import { normalizeCartItem, toClientOrder, toClientProduct } from "./serializers";
 
@@ -37,6 +37,7 @@ const normalizeWishlist = (value: unknown): string[] => {
 
 export function useTechAiStore() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [heroCampaigns, setHeroCampaigns] = useState<HeroCampaign[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
@@ -67,6 +68,20 @@ export function useTechAiStore() {
       return normalized;
     }
     throw new Error(data.message || "Unable to load products");
+  };
+
+  const refreshHeroCampaigns = async () => {
+    try {
+      const response = await fetch("/api/hero-campaigns", { cache: "no-store" });
+      const data = await response.json();
+      if (data.success && Array.isArray(data.campaigns)) {
+        setHeroCampaigns(data.campaigns);
+        return data.campaigns as HeroCampaign[];
+      }
+    } catch {
+      // The hero falls back to legacy product promotions when campaigns are unavailable.
+    }
+    return heroCampaigns;
   };
 
   const refreshOrders = async (query?: string, userCreds?: { id?: string; email?: string; phone?: string }) => {
@@ -148,6 +163,7 @@ export function useTechAiStore() {
     setIsLoaded(true);
 
     refreshProducts().catch(() => {});
+    refreshHeroCampaigns().catch(() => {});
     if (loadedUser) {
       refreshOrders("", { id: loadedUser.id, email: loadedUser.email, phone: loadedUser.phone });
       refreshWishlist().catch(() => {});
@@ -468,11 +484,13 @@ export function useTechAiStore() {
   return {
     isLoaded,
     products,
+    heroCampaigns,
     cart,
     orders,
     wishlist,
     user,
     refreshProducts,
+    refreshHeroCampaigns,
     refreshOrders,
     refreshSession,
     refreshWishlist,

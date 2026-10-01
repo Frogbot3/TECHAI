@@ -143,22 +143,22 @@ export default function Navbar({
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-sm">
         {/* Top Utility Bar */}
         <div className="bg-slate-950 text-slate-300 text-[11px]">
-          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between gap-2">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-1.5 flex items-center justify-between gap-2 min-w-0">
             {/* Delivery Location Selector */}
             <button
               type="button"
               onClick={() => setIsLocationModalOpen(true)}
-              className="flex items-center gap-1.5 hover:text-white transition-colors text-slate-300 group cursor-pointer"
+              className="min-w-0 max-w-[175px] sm:max-w-none flex items-center gap-1.5 hover:text-white transition-colors text-slate-300 group cursor-pointer"
             >
               <MapPin className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
               <span className="truncate">
                 Deliver to: <strong className="text-white font-semibold">{deliveryLocation}</strong>
               </span>
-              <span className="text-[10px] text-cyan-400 font-bold ml-1">Change</span>
+              <span className="hidden min-[360px]:inline text-[10px] text-cyan-400 font-bold ml-1">Change</span>
             </button>
 
             {/* Right Utility Links */}
-            <div className="flex items-center space-x-4 flex-shrink-0">
+            <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
               {/* Currency Selector */}
               <div className="relative">
                 <button

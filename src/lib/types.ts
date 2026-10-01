@@ -42,6 +42,37 @@ export interface Product {
   reviews?: Review[];
 }
 
+export type HeroCampaignBackgroundStyle = "solid" | "gradient";
+
+export interface HeroCampaign {
+  id: string;
+  name: string;
+  badge: string;
+  productId: string;
+  product?: Product;
+  titleOverride?: string;
+  subtitle: string;
+  price: number;
+  originalPrice: number;
+  discountPercent: number;
+  offerText: string;
+  ctaText: string;
+  imageOverride?: string;
+  backgroundStyle: HeroCampaignBackgroundStyle;
+  backgroundValue: string;
+  verified: boolean;
+  priority: number;
+  displayOrder: number;
+  startAt: string;
+  endAt: string;
+  isActive: boolean;
+  impressions: number;
+  clicks: number;
+  productClicks: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface CartItem {
   product: Product;
   quantity: number;

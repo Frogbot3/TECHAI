@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import TechAiLogo from "@/components/TechAiLogo";
+import HeroCampaignManager from "@/components/HeroCampaignManager";
 import { Product, Order, OrderStatus, User, Review } from "@/lib/types";
 import { CATEGORIES } from "@/lib/data";
 import { generateOrderInvoice } from "@/lib/generateInvoice";
@@ -55,7 +56,7 @@ import {
 export default function AdminDashboardPage() {
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<"ANALYTICS" | "PRODUCTS" | "ORDERS" | "CUSTOMERS">("ANALYTICS");
+  const [activeTab, setActiveTab] = useState<"ANALYTICS" | "CAMPAIGNS" | "PRODUCTS" | "ORDERS" | "CUSTOMERS">("ANALYTICS");
   const [productSearch, setProductSearch] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
@@ -652,6 +653,7 @@ export default function AdminDashboardPage() {
 
   const tabs = [
     { id: "ANALYTICS" as const, label: "Overview & Analytics", icon: BarChart3 },
+    { id: "CAMPAIGNS" as const, label: "Hero Campaigns", icon: Sparkles },
     { id: "PRODUCTS" as const, label: `Products & Stock (${products.length})`, icon: Package },
     { id: "ORDERS" as const, label: `Live Orders (${orders.length})`, icon: Truck },
     { id: "CUSTOMERS" as const, label: `Customers (${customers.length})`, icon: Users },
@@ -821,6 +823,19 @@ export default function AdminDashboardPage() {
 
         {/* TAB 1: OVERVIEW & ANALYTICS */}
         <AnimatePresence mode="wait">
+          {activeTab === "CAMPAIGNS" && (
+            <motion.div
+              key="campaigns"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="rounded-3xl border border-slate-800 bg-slate-900/60 p-4 shadow-xl sm:p-6"
+            >
+              <HeroCampaignManager products={products} />
+            </motion.div>
+          )}
+
           {activeTab === "ANALYTICS" && (
             <motion.div
               key="analytics"

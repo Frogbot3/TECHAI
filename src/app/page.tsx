@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useTechAiStore } from "@/lib/store";
 import Navbar from "@/components/Navbar";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -42,6 +43,7 @@ import {
 import Link from "next/link";
 
 export default function HomePage() {
+  const router = useRouter();
   const store = useTechAiStore();
 
   // Navigation & Search State
@@ -244,8 +246,10 @@ export default function HomePage() {
             {/* 2. Main Hero Section */}
             <HeroCarousel
               products={store.products}
+              campaigns={store.heroCampaigns}
               onExploreCategory={(cat) => setSelectedCategory(cat)}
               onSelectProduct={(p) => setQuickViewProduct(p)}
+              onOpenProductPage={(p) => router.push(`/product/${encodeURIComponent(p.id)}`)}
             />
 
             {/* 3. Flash Deals Section */}

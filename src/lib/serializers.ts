@@ -1,4 +1,4 @@
-import { CartItem, Order, OrderStatus, Product, User } from "./types";
+import { CartItem, HeroCampaign, Order, OrderStatus, Product, User } from "./types";
 
 const toPlain = (value: any) => {
   if (!value) return value;
@@ -57,6 +57,38 @@ export function toClientProduct(value: any): Product {
           verifiedPurchase: Boolean(r.verifiedPurchase),
         }))
       : [],
+  };
+}
+
+export function toClientHeroCampaign(value: any, product?: Product): HeroCampaign {
+  const campaign = toPlain(value);
+  return {
+    id: campaign.campaignId || campaign.id || campaign._id?.toString() || `campaign-${Date.now()}`,
+    name: campaign.name || "Untitled campaign",
+    badge: campaign.badge || "SPECIAL DROP",
+    productId: campaign.productId || product?.id || "",
+    product,
+    titleOverride: campaign.titleOverride || "",
+    subtitle: campaign.subtitle || product?.description || "",
+    price: Number(campaign.price ?? product?.price ?? 0),
+    originalPrice: Number(campaign.originalPrice ?? product?.originalPrice ?? campaign.price ?? 0),
+    discountPercent: Number(campaign.discountPercent ?? 0),
+    offerText: campaign.offerText || "",
+    ctaText: campaign.ctaText || "Shop Now",
+    imageOverride: campaign.imageOverride || "",
+    backgroundStyle: campaign.backgroundStyle === "gradient" ? "gradient" : "solid",
+    backgroundValue: campaign.backgroundValue || "#5b2f87",
+    verified: Boolean(campaign.verified),
+    priority: Number(campaign.priority || 0),
+    displayOrder: Number(campaign.displayOrder || 0),
+    startAt: dateToString(campaign.startAt),
+    endAt: dateToString(campaign.endAt),
+    isActive: Boolean(campaign.isActive),
+    impressions: Number(campaign.impressions || 0),
+    clicks: Number(campaign.clicks || 0),
+    productClicks: Number(campaign.productClicks || 0),
+    createdAt: campaign.createdAt ? dateToString(campaign.createdAt) : undefined,
+    updatedAt: campaign.updatedAt ? dateToString(campaign.updatedAt) : undefined,
   };
 }
 
