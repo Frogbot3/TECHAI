@@ -40,6 +40,7 @@ interface HeroTheme {
   price: string;
   original: string;
   cta: string;
+  ctaText: string;
   link: string;
   arrow: string;
   media: string;
@@ -63,89 +64,94 @@ interface CompanionDeal {
 
 const HERO_THEMES: Record<"rose" | "cyan" | "indigo" | "amber" | "emerald", HeroTheme> = {
   rose: {
-    container: "bg-gradient-to-br from-rose-100 via-pink-50 to-white border-rose-300",
-    badge: "bg-rose-100 text-rose-800 border-rose-300",
-    heading: "text-slate-950",
-    body: "text-slate-700",
-    label: "text-slate-600",
-    price: "text-slate-950",
-    original: "text-slate-500",
-    cta: "bg-rose-600 hover:bg-rose-700",
-    link: "text-rose-700 hover:text-rose-900",
-    arrow: "text-rose-100",
-    media: "bg-white border-rose-200",
-    divider: "border-rose-200",
-    indicator: "bg-rose-200 hover:bg-rose-300",
-    activeIndicator: "bg-rose-700",
-    control: "bg-white hover:bg-rose-50 border-rose-200 text-rose-800",
+    container: "bg-[#c72d68] border-[#c72d68]",
+    badge: "bg-white/15 text-white border-white/25",
+    heading: "text-white",
+    body: "text-white/80",
+    label: "text-white/80",
+    price: "text-white",
+    original: "text-white/60",
+    cta: "bg-white hover:bg-white/90",
+    ctaText: "text-rose-800",
+    link: "text-white/90 hover:text-white",
+    arrow: "text-rose-800",
+    media: "bg-black/20 border-white/25",
+    divider: "border-white/20",
+    indicator: "bg-white/40 hover:bg-white/60",
+    activeIndicator: "bg-white",
+    control: "bg-white/10 hover:bg-white/20 border-white/30 text-white",
   },
   cyan: {
-    container: "bg-gradient-to-br from-cyan-100 via-sky-50 to-white border-cyan-300",
-    badge: "bg-cyan-100 text-cyan-800 border-cyan-300",
-    heading: "text-slate-950",
-    body: "text-slate-700",
-    label: "text-slate-600",
-    price: "text-slate-950",
-    original: "text-slate-500",
-    cta: "bg-cyan-600 hover:bg-cyan-700",
-    link: "text-cyan-700 hover:text-cyan-900",
-    arrow: "text-cyan-100",
-    media: "bg-white border-cyan-200",
-    divider: "border-cyan-200",
-    indicator: "bg-cyan-200 hover:bg-cyan-300",
-    activeIndicator: "bg-cyan-700",
-    control: "bg-white hover:bg-cyan-50 border-cyan-200 text-cyan-800",
+    container: "bg-[#087b91] border-[#087b91]",
+    badge: "bg-white/15 text-white border-white/25",
+    heading: "text-white",
+    body: "text-white/80",
+    label: "text-white/80",
+    price: "text-white",
+    original: "text-white/60",
+    cta: "bg-white hover:bg-white/90",
+    ctaText: "text-cyan-900",
+    link: "text-white/90 hover:text-white",
+    arrow: "text-cyan-900",
+    media: "bg-black/20 border-white/25",
+    divider: "border-white/20",
+    indicator: "bg-white/40 hover:bg-white/60",
+    activeIndicator: "bg-white",
+    control: "bg-white/10 hover:bg-white/20 border-white/30 text-white",
   },
   indigo: {
-    container: "bg-gradient-to-br from-indigo-100 via-violet-50 to-white border-indigo-300",
-    badge: "bg-indigo-100 text-indigo-800 border-indigo-300",
-    heading: "text-slate-950",
-    body: "text-slate-700",
-    label: "text-slate-600",
-    price: "text-slate-950",
-    original: "text-slate-500",
-    cta: "bg-indigo-600 hover:bg-indigo-700",
-    link: "text-indigo-700 hover:text-indigo-900",
-    arrow: "text-indigo-100",
-    media: "bg-white border-indigo-200",
-    divider: "border-indigo-200",
-    indicator: "bg-indigo-200 hover:bg-indigo-300",
-    activeIndicator: "bg-indigo-700",
-    control: "bg-white hover:bg-indigo-50 border-indigo-200 text-indigo-800",
+    container: "bg-[#5b2f87] border-[#5b2f87]",
+    badge: "bg-white/15 text-white border-white/25",
+    heading: "text-white",
+    body: "text-white/80",
+    label: "text-white/80",
+    price: "text-white",
+    original: "text-white/60",
+    cta: "bg-white hover:bg-white/90",
+    ctaText: "text-indigo-900",
+    link: "text-white/90 hover:text-white",
+    arrow: "text-indigo-900",
+    media: "bg-black/20 border-white/25",
+    divider: "border-white/20",
+    indicator: "bg-white/40 hover:bg-white/60",
+    activeIndicator: "bg-white",
+    control: "bg-white/10 hover:bg-white/20 border-white/30 text-white",
   },
   amber: {
-    container: "bg-gradient-to-br from-amber-100 via-orange-50 to-white border-amber-300",
-    badge: "bg-amber-100 text-amber-800 border-amber-300",
-    heading: "text-slate-950",
-    body: "text-slate-700",
-    label: "text-slate-600",
-    price: "text-slate-950",
-    original: "text-slate-500",
-    cta: "bg-amber-600 hover:bg-amber-700",
-    link: "text-amber-700 hover:text-amber-900",
-    arrow: "text-amber-100",
-    media: "bg-white border-amber-200",
-    divider: "border-amber-200",
-    indicator: "bg-amber-200 hover:bg-amber-300",
-    activeIndicator: "bg-amber-700",
-    control: "bg-white hover:bg-amber-50 border-amber-200 text-amber-800",
+    container: "bg-[#b45309] border-[#b45309]",
+    badge: "bg-white/15 text-white border-white/25",
+    heading: "text-white",
+    body: "text-white/80",
+    label: "text-white/80",
+    price: "text-white",
+    original: "text-white/60",
+    cta: "bg-white hover:bg-white/90",
+    ctaText: "text-amber-900",
+    link: "text-white/90 hover:text-white",
+    arrow: "text-amber-900",
+    media: "bg-black/20 border-white/25",
+    divider: "border-white/20",
+    indicator: "bg-white/40 hover:bg-white/60",
+    activeIndicator: "bg-white",
+    control: "bg-white/10 hover:bg-white/20 border-white/30 text-white",
   },
   emerald: {
-    container: "bg-gradient-to-br from-emerald-100 via-teal-50 to-white border-emerald-300",
-    badge: "bg-emerald-100 text-emerald-800 border-emerald-300",
-    heading: "text-slate-950",
-    body: "text-slate-700",
-    label: "text-slate-600",
-    price: "text-slate-950",
-    original: "text-slate-500",
-    cta: "bg-emerald-600 hover:bg-emerald-700",
-    link: "text-emerald-700 hover:text-emerald-900",
-    arrow: "text-emerald-100",
-    media: "bg-white border-emerald-200",
-    divider: "border-emerald-200",
-    indicator: "bg-emerald-200 hover:bg-emerald-300",
-    activeIndicator: "bg-emerald-700",
-    control: "bg-white hover:bg-emerald-50 border-emerald-200 text-emerald-800",
+    container: "bg-[#047857] border-[#047857]",
+    badge: "bg-white/15 text-white border-white/25",
+    heading: "text-white",
+    body: "text-white/80",
+    label: "text-white/80",
+    price: "text-white",
+    original: "text-white/60",
+    cta: "bg-white hover:bg-white/90",
+    ctaText: "text-emerald-900",
+    link: "text-white/90 hover:text-white",
+    arrow: "text-emerald-900",
+    media: "bg-black/20 border-white/25",
+    divider: "border-white/20",
+    indicator: "bg-white/40 hover:bg-white/60",
+    activeIndicator: "bg-white",
+    control: "bg-white/10 hover:bg-white/20 border-white/30 text-white",
   },
 };
 
@@ -340,7 +346,7 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.55),transparent_32%)]" />
+          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_78%_18%,rgba(255,255,255,0.14),transparent_32%)]" />
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={String(slide.id)}
@@ -364,7 +370,7 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
                   <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 py-0.5 rounded-md bg-rose-600 text-white font-extrabold text-[8px] sm:text-[11px] shadow-sm"><Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" /><span className="truncate max-w-[85px] sm:max-w-none">{slide.offer}</span></span>
                 </div>
                 <div className="pt-0.5 sm:pt-1.5 flex flex-wrap items-center gap-2 sm:gap-3">
-                  <button type="button" onClick={() => slide.productRef && onSelectProduct ? onSelectProduct(slide.productRef) : onExploreCategory(slide.category)} className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 h-7 sm:h-10 px-3 sm:px-5 rounded-lg sm:rounded-xl ${slide.ctaBg} text-white font-extrabold text-[11px] sm:text-sm transition-all shadow-sm active:scale-95 cursor-pointer`}><span>{slide.cta}</span><ArrowRight className={`w-3 h-3 sm:w-4 sm:h-4 ${slide.ctaArrow}`} /></button>
+                  <button type="button" onClick={() => slide.productRef && onSelectProduct ? onSelectProduct(slide.productRef) : onExploreCategory(slide.category)} className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 h-7 sm:h-10 px-3 sm:px-5 rounded-lg sm:rounded-xl ${slide.ctaBg} ${slide.theme.ctaText} font-extrabold text-[11px] sm:text-sm transition-all shadow-sm active:scale-95 cursor-pointer`}><span>{slide.cta}</span><ArrowRight className={`w-3 h-3 sm:w-4 sm:h-4 ${slide.ctaArrow}`} /></button>
                   <button type="button" onClick={() => onExploreCategory(slide.category)} className={`hidden sm:inline-flex items-center justify-center text-xs sm:text-sm font-bold ${slide.ctaHover} underline decoration-slate-400 underline-offset-4 transition cursor-pointer py-1`}>Browse {slide.category}</button>
                 </div>
               </div>
@@ -389,8 +395,8 @@ export default function HeroCarousel({ products = [], onExploreCategory, onSelec
         <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-1 gap-3 lg:col-span-4 lg:grid-rows-2">
           {companionDeals.map((deal) => {
             const accentClasses = deal.accent === "cyan"
-              ? { card: "bg-cyan-50 border-cyan-200 hover:bg-cyan-100 hover:border-cyan-300", label: "text-cyan-800 bg-cyan-100 border-cyan-300", title: "text-slate-950", detail: "text-slate-600", action: "text-cyan-700", image: "bg-white border-cyan-200" }
-              : { card: "bg-amber-50 border-amber-200 hover:bg-amber-100 hover:border-amber-300", label: "text-amber-800 bg-amber-100 border-amber-300", title: "text-slate-950", detail: "text-slate-600", action: "text-amber-700", image: "bg-white border-amber-200" };
+              ? { card: "bg-[#4d1d73] border-[#6b2a97] hover:bg-[#5b2385] hover:border-[#7c35aa]", label: "text-white bg-white/15 border-white/25", title: "text-white", detail: "text-white/75", action: "text-white", image: "bg-black/20 border-white/25" }
+              : { card: "bg-[#07182a] border-[#17314a] hover:bg-[#0b2238] hover:border-[#234665]", label: "text-white bg-white/10 border-white/20", title: "text-white", detail: "text-white/70", action: "text-white", image: "bg-white/10 border-white/20" };
             return <button key={deal.id} type="button" onClick={() => deal.productRef && onSelectProduct ? onSelectProduct(deal.productRef) : onExploreCategory(deal.category)} className={`min-h-[150px] lg:min-h-0 flex items-center justify-between gap-2 p-3 sm:p-4 rounded-2xl border text-left shadow-md shadow-slate-950/5 transition-all cursor-pointer group overflow-hidden ${accentClasses.card}`}>
               <div className="space-y-1 min-w-0"><span className={`inline-flex max-w-full text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded border ${accentClasses.label}`}><span className="truncate">{deal.label}</span></span><h2 className={`text-[11px] sm:text-sm font-extrabold leading-tight line-clamp-2 ${accentClasses.title}`}>{deal.title}</h2><p className={`text-[10px] sm:text-xs font-semibold line-clamp-1 ${accentClasses.detail}`}>{deal.detail}</p><span className={`inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold ${accentClasses.action} pt-0.5`}>{deal.action}<ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" /></span></div>
               <div className={`w-14 h-14 sm:w-20 sm:h-20 rounded-xl border p-1.5 sm:p-2 flex items-center justify-center shrink-0 transition-colors overflow-hidden ${accentClasses.image}`}><img src={deal.image} alt={deal.title} className="max-h-full max-w-full object-contain rounded-lg" loading="lazy" /></div>
