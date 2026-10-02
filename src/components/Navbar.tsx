@@ -211,14 +211,6 @@ export default function Navbar({
                 <span>Track Orders</span>
               </Link>
 
-              {/* Admin Portal */}
-              <Link
-                href="/admin/login"
-                className="flex items-center gap-1 hover:text-white transition-colors text-slate-400 hover:text-slate-200"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                <span>Admin</span>
-              </Link>
             </div>
           </div>
         </div>

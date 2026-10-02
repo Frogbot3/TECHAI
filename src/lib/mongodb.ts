@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/techai";
+const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "techai";
 
 if (!MONGODB_URI) {
@@ -21,6 +21,9 @@ const cached: MongooseCache = global.mongooseCache ?? { conn: null, promise: nul
 global.mongooseCache = cached;
 
 export async function connectToDatabase() {
+  if (!MONGODB_URI) {
+    throw new Error("Database is not configured. Set MONGODB_URI in the deployment environment.");
+  }
   if (cached.conn) {
     return cached.conn;
   }

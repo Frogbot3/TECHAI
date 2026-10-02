@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Product from "@/models/Product";
 import { INITIAL_PRODUCTS } from "@/lib/data";
 import { toClientProduct } from "@/lib/serializers";
+import { ADMIN_SESSION_COOKIE, getSessionFromCookie } from "@/lib/auth";
 
 const seedOperations = () =>
   INITIAL_PRODUCTS.map((p) => ({
@@ -75,6 +76,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const session = await getSessionFromCookie(ADMIN_SESSION_COOKIE);
+    if (session?.role !== "admin") return NextResponse.json({ success: false, message: "Administrator access required." }, { status: 403 });
     const body = await req.json();
     await connectToDatabase();
 

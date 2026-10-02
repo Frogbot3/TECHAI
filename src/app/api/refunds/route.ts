@@ -18,11 +18,7 @@ import {
 import { sendRefundNotification } from "@/lib/refund-notifications";
 
 function ownsOrder(order: { customerId?: string; userEmail?: string; userPhone?: string }, session: { id: string; email: string; phone: string }) {
-  return Boolean(
-    (order.customerId && order.customerId === session.id) ||
-      (order.userEmail && session.email && order.userEmail.toLowerCase() === session.email.toLowerCase()) ||
-      (order.userPhone && session.phone && order.userPhone === session.phone)
-  );
+  return Boolean(order.customerId && order.customerId === session.id);
 }
 
 export async function POST(req: Request) {

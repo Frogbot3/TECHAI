@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
 import Product from "@/models/Product";
 import { toClientProduct } from "@/lib/serializers";
+import { ADMIN_SESSION_COOKIE, getSessionFromCookie } from "@/lib/auth";
 
 const buildProductQuery = (id: string) => {
   if (mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === id) {
@@ -13,6 +14,8 @@ const buildProductQuery = (id: string) => {
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await getSessionFromCookie(ADMIN_SESSION_COOKIE);
+    if (session?.role !== "admin") return NextResponse.json({ success: false, message: "Administrator access required." }, { status: 403 });
     const { id } = await params;
     const { amount } = await req.json();
 

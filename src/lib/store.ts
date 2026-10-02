@@ -7,9 +7,13 @@ import { normalizeCartItem, toClientOrder, toClientProduct } from "./serializers
 
 const PRODUCTS_KEY = "techai_products_v4";
 const CART_KEY = "techai_cart_v2";
-const ORDERS_KEY = "techai_orders_v2";
+const LEGACY_ORDERS_KEY = "techai_orders_v2";
 const USER_KEY = "techai_user_v2";
 const WISHLIST_KEY = "techai_wishlist_v2";
+
+// Orders are private account data. A separate cache per authenticated user
+// prevents a previous browser user from briefly seeing another user's history.
+const ordersKeyFor = (customerId?: string) => customerId ? `techai_orders_v3:${customerId}` : null;
 
 const getStorage = <T,>(key: string, defaultValue: T): T => {
   if (typeof window === "undefined") return defaultValue;
@@ -51,7 +55,8 @@ export function useTechAiStore() {
 
   const updateOrders = (newOrders: Order[]) => {
     setOrders(newOrders);
-    setStorage(ORDERS_KEY, newOrders);
+    const orderKey = ordersKeyFor(user?.id);
+    if (orderKey) setStorage(orderKey, newOrders);
   };
 
   const updateCart = (newCart: CartItem[]) => {
@@ -84,28 +89,19 @@ export function useTechAiStore() {
     return heroCampaigns;
   };
 
-  const refreshOrders = async (query?: string, userCreds?: { id?: string; email?: string; phone?: string }) => {
-    const currentUser = userCreds || user;
-
-    // If no user is authenticated and no search query is specified, do not query all orders
-    if (!currentUser && !query?.trim()) {
-      return orders;
+  const refreshOrders = async (customerId?: string) => {
+    const activeCustomerId = customerId || user?.id;
+    if (!activeCustomerId) {
+      setOrders([]);
+      return [];
     }
-
-    const params = new URLSearchParams();
-    if (query?.trim()) params.set("query", query.trim());
-
-    if (currentUser?.id) params.set("customerId", currentUser.id);
-    if (currentUser?.email) params.set("email", currentUser.email);
-    if (currentUser?.phone) params.set("phone", currentUser.phone);
-
-    const url = params.toString() ? `/api/orders?${params.toString()}` : "/api/orders";
     try {
-      const response = await fetch(url);
+      const response = await fetch("/api/orders", { cache: "no-store" });
       const data = await response.json();
       if (data.success && Array.isArray(data.orders)) {
         const normalized = data.orders.map(toClientOrder);
-        updateOrders(normalized);
+        setOrders(normalized);
+        setStorage(ordersKeyFor(activeCustomerId)!, normalized);
         return normalized;
       }
     } catch (err) {
@@ -120,7 +116,7 @@ export function useTechAiStore() {
       const data = await response.json();
       if (data.success && data.user) {
         const loggedUser = setAuthenticatedUser(data.user);
-        refreshOrders("", { id: loggedUser.id, email: loggedUser.email, phone: loggedUser.phone });
+        refreshOrders(loggedUser.id);
         refreshWishlist().catch(() => {});
         return loggedUser;
       }
@@ -140,20 +136,13 @@ export function useTechAiStore() {
     }
 
     const loadedCart = getStorage<CartItem[]>(CART_KEY, []).map(normalizeCartItem);
-    const rawOrders = getStorage<Order[]>(ORDERS_KEY, []).map(toClientOrder);
     const loadedWishlist = normalizeWishlist(getStorage<unknown>(WISHLIST_KEY, []));
     const loadedUser = getStorage<User | null>(USER_KEY, null);
+    const rawOrders = loadedUser ? getStorage<Order[]>(ordersKeyFor(loadedUser.id)!, []).map(toClientOrder) : [];
 
-    // Sanitize cached orders so a guest never sees other customers' cached orders
-    const loadedOrders = loadedUser
-      ? rawOrders.filter(
-          (o) =>
-            !o.customerId ||
-            o.customerId === loadedUser.id ||
-            (loadedUser.email && o.shippingAddress?.email?.toLowerCase() === loadedUser.email.toLowerCase()) ||
-            (loadedUser.phone && o.shippingAddress?.phone === loadedUser.phone)
-        )
-      : rawOrders.filter((o) => !o.customerId);
+    // Do not migrate the old shared browser cache: it may include a different account.
+    if (typeof window !== "undefined") localStorage.removeItem(LEGACY_ORDERS_KEY);
+    const loadedOrders = loadedUser ? rawOrders.filter((order) => order.customerId === loadedUser.id) : [];
 
     setProducts(loadedProducts);
     setCart(loadedCart);
@@ -165,7 +154,7 @@ export function useTechAiStore() {
     refreshProducts().catch(() => {});
     refreshHeroCampaigns().catch(() => {});
     if (loadedUser) {
-      refreshOrders("", { id: loadedUser.id, email: loadedUser.email, phone: loadedUser.phone });
+      refreshOrders(loadedUser.id);
       refreshWishlist().catch(() => {});
     }
     refreshSession().catch(() => {});
@@ -299,7 +288,7 @@ export function useTechAiStore() {
     const cleanUser = { ...authenticatedUser, isLoggedIn: true };
     setUser(cleanUser);
     setStorage(USER_KEY, cleanUser);
-    refreshOrders("", { id: cleanUser.id, email: cleanUser.email, phone: cleanUser.phone });
+    refreshOrders(cleanUser.id);
     return cleanUser;
   };
 
@@ -318,7 +307,6 @@ export function useTechAiStore() {
     setUser(null);
     setStorage(USER_KEY, null);
     setOrders([]);
-    setStorage(ORDERS_KEY, []);
     fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
   };
 

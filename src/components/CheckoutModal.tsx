@@ -180,6 +180,10 @@ export default function CheckoutModal({
   const handleAddressSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError("");
+    if (!user?.id || !user?.isLoggedIn) {
+      setValidationError("Please sign in before placing an order so it is saved to the correct account.");
+      return;
+    }
     const errors: Record<string, string> = {};
 
     if (!address.fullName.trim()) {

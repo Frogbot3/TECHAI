@@ -52,22 +52,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Unsupported delivery option." }, { status: 400 });
     }
 
-    const session = await getSessionFromCookie();
+    const session = await getSessionFromCookie(CUSTOMER_SESSION_COOKIE);
+    if (!session || session.role !== "customer") {
+      return NextResponse.json({ success: false, message: "Please sign in before placing an order." }, { status: 401 });
+    }
     const safeCheckoutId = typeof checkoutId === "string" ? checkoutId.trim().slice(0, 128) : "";
-    const customerName = session?.name || shippingAddress.fullName;
-    const customerEmail = session?.email || shippingAddress.email || "";
-    const customerPhone = shippingAddress.phone || session?.phone || "";
+    const customerName = session.name || shippingAddress.fullName;
+    const customerEmail = session.email || shippingAddress.email || "";
+    const customerPhone = session.phone || shippingAddress.phone || "";
 
     await connectToDatabase();
 
     // The checkout key makes a refresh or a repeated request return the same pending order.
     if (safeCheckoutId) {
-      const ownerConditions = session?.id
-        ? { customerId: session.id }
-        : customerEmail
-        ? { userEmail: customerEmail }
-        : { userPhone: customerPhone };
-      const existingOrder = await Order.findOne({ checkoutId: safeCheckoutId, ...ownerConditions });
+      const existingOrder = await Order.findOne({ checkoutId: safeCheckoutId, customerId: session.id });
       if (existingOrder) {
         return NextResponse.json({
           success: true,
@@ -189,7 +187,7 @@ export async function POST(req: Request) {
 
     const newOrder = await Order.create({
       orderId,
-      customerId: session?.id || "",
+      customerId: session.id,
       userPhone: customerPhone,
       userEmail: customerEmail,
       userName: customerName,
@@ -230,12 +228,8 @@ export async function POST(req: Request) {
     });
 
     // Save address to user profile
-    if (session?.id || customerEmail || customerPhone) {
-      const userQuery = session?.id
-        ? { _id: session.id }
-        : customerEmail
-        ? { email: { $regex: `^${customerEmail}$`, $options: "i" } }
-        : { phone: customerPhone };
+    if (session.id) {
+      const userQuery = { _id: session.id };
 
       await User.findOneAndUpdate(
         userQuery,
@@ -307,34 +301,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, count: orders.length, orders: orders.map(toClientOrder) });
     }
 
-    // 2. Identify active customer (either via verified session cookie or validated params)
-    const activeCustomerId = customerSession?.id || customerId;
-    const activeEmail = customerSession?.email || email;
-    const activePhone = customerSession?.phone || phone;
-
-    // Build ownership filter conditions for this individual customer
-    const userConditions: any[] = [];
-    if (activeCustomerId) {
-      userConditions.push({ customerId: activeCustomerId });
-    }
-    if (activeEmail && activeEmail.trim()) {
-      const cleanEmail = activeEmail.trim();
-      userConditions.push(
-        { userEmail: { $regex: `^${cleanEmail}$`, $options: "i" } },
-        { "shippingAddress.email": { $regex: `^${cleanEmail}$`, $options: "i" } }
-      );
-    }
-    if (activePhone && activePhone.trim()) {
-      const cleanPhone = activePhone.trim();
-      userConditions.push(
-        { userPhone: cleanPhone },
-        { "shippingAddress.phone": cleanPhone }
-      );
-    }
-
-    // 3. If customer is identified, return ONLY their individual orders
-    if (userConditions.length > 0) {
-      let filter: any = { $or: userConditions };
+    // Customer history comes only from the signed session. Never trust browser-
+    // supplied email/phone values: they can be shared or deliberately changed.
+    if (customerSession?.role === "customer") {
+      let filter: any = { customerId: customerSession.id };
 
       // If they are filtering/searching within their own orders
       if (query && query.trim()) {
@@ -344,30 +314,15 @@ export async function GET(req: Request) {
           { trackingNumber: { $regex: q, $options: "i" } },
           { "items.title": { $regex: q, $options: "i" } },
         ];
-        filter = { $and: [{ $or: userConditions }, { $or: searchOr }] };
+        filter = { $and: [{ customerId: customerSession.id }, { $or: searchOr }] };
       }
 
       const orders = await Order.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
       return NextResponse.json({ success: true, count: orders.length, orders: orders.map(toClientOrder) });
     }
 
-    // 4. If user is a GUEST (not logged in) with a specific tracking query (e.g. tracking modal)
-    if (query && query.trim()) {
-      const q = query.trim();
-      // Only allow exact or specific Order ID / Tracking Number lookup for guests
-      const guestFilter = {
-        $or: [
-          { orderId: { $regex: `^${q}$`, $options: "i" } },
-          { trackingNumber: { $regex: `^${q}$`, $options: "i" } },
-        ],
-      };
-      const orders = await Order.find(guestFilter).sort({ createdAt: -1 }).limit(10);
-      return NextResponse.json({ success: true, count: orders.length, orders: orders.map(toClientOrder) });
-    }
-
-    // 5. If no customer identity and no specific tracking query, RETURN EMPTY LIST
-    // Never expose other customers' orders to the public!
-    return NextResponse.json({ success: true, count: 0, orders: [] });
+    // Never expose private order data to unauthenticated visitors.
+    return NextResponse.json({ success: false, message: "Please sign in to view your orders.", count: 0, orders: [] }, { status: 401 });
   } catch (error) {
     console.error("GET orders route error:", error);
     return NextResponse.json({ success: false, message: (error as Error).message }, { status: 500 });

@@ -7,12 +7,7 @@ import Order from "@/models/Order";
 export const runtime = "nodejs";
 
 function ownsOrder(order: { customerId?: string; userEmail?: string; userPhone?: string }, session: NonNullable<Awaited<ReturnType<typeof getSessionFromCookie>>>) {
-  return Boolean(
-    session &&
-      ((order.customerId && order.customerId === session.id) ||
-        (order.userEmail && session.email && order.userEmail.toLowerCase() === session.email.toLowerCase()) ||
-        (order.userPhone && session.phone && order.userPhone === session.phone))
-  );
+  return Boolean(session && order.customerId && order.customerId === session.id);
 }
 
 export async function POST(req: Request) {

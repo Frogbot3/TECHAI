@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     await connectToDatabase();
     const order = await Order.findOne({
       orderId,
-      $or: [{ customerId: session.id }, { userEmail: session.email }, { userPhone: session.phone }],
+      customerId: session.id,
     });
 
     if (!order) return NextResponse.json({ success: false, message: "Order not found." }, { status: 404 });

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
-import { ADMIN_SESSION_COOKIE, getSessionFromCookie } from "@/lib/auth";
+import { ADMIN_SESSION_COOKIE, CUSTOMER_SESSION_COOKIE, getSessionFromCookie } from "@/lib/auth";
 import { toClientOrder } from "@/lib/serializers";
 import Order from "@/models/Order";
 
@@ -15,9 +15,15 @@ const buildOrderQuery = (id: string) => {
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const customerSession = await getSessionFromCookie(CUSTOMER_SESSION_COOKIE);
+    const adminSession = await getSessionFromCookie(ADMIN_SESSION_COOKIE);
+    if (customerSession?.role !== "customer" && adminSession?.role !== "admin") {
+      return NextResponse.json({ success: false, message: "Please sign in to track an order." }, { status: 401 });
+    }
     await connectToDatabase();
 
-    const order = await Order.findOne(buildOrderQuery(id)).sort({ createdAt: -1 });
+    const ownerFilter = adminSession?.role === "admin" ? {} : { customerId: customerSession!.id };
+    const order = await Order.findOne({ $and: [buildOrderQuery(id), ownerFilter] }).sort({ createdAt: -1 });
 
     if (!order) {
       return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });

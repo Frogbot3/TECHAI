@@ -221,13 +221,13 @@ export default function OrderTrackingModal({
               <div className="space-y-5">
                 <form onSubmit={handleSearchSubmit} className="flex gap-2">
                   <label className="relative block min-w-0 flex-1">
-                    <span className="sr-only">Order ID, tracking ID, or phone number</span>
+                    <span className="sr-only">Your order ID or tracking ID</span>
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder="Order ID, tracking ID, or phone number"
+                      placeholder="Your order ID or tracking ID"
                       className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-xs font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
                     />
                   </label>

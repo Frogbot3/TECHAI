@@ -181,11 +181,6 @@ export default function Footer({ onOpenTracking, onOpenAuth, onSelectCategory }:
                 </button>
               </li>
               <li>
-                <Link href="/admin/login" className="hover:text-amber-400 transition font-semibold">
-                  Admin Portal
-                </Link>
-              </li>
-              <li>
                 <span className="text-slate-500">Official Brand Warranty</span>
               </li>
             </ul>

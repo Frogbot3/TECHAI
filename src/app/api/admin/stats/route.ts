@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ADMIN_SESSION_COOKIE, getSessionFromCookie } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import { toClientOrder, toClientProduct, toClientUser } from "@/lib/serializers";
 import Order from "@/models/Order";
@@ -7,6 +8,10 @@ import User from "@/models/User";
 
 export async function GET() {
   try {
+    const session = await getSessionFromCookie(ADMIN_SESSION_COOKIE);
+    if (session?.role !== "admin") {
+      return NextResponse.json({ success: false, message: "Administrator access required." }, { status: 403 });
+    }
     await connectToDatabase();
 
     const [orders, products, users] = await Promise.all([
