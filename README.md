@@ -21,7 +21,7 @@ Refunds use the existing order-level Razorpay payment fields and a new `Refund` 
 RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret
 ```
 
-The existing `NEXT_PUBLIC_RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` remain required for Razorpay payment and refund API calls. Never expose `RAZORPAY_KEY_SECRET` or `RAZORPAY_WEBHOOK_SECRET` to the browser.
+The server-side Razorpay integration uses `RAZORPAY_KEY_ID` (preferred), `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET`. The existing `NEXT_PUBLIC_RAZORPAY_KEY_ID` is retained as a local backwards-compatible fallback for the public checkout key. Never expose `RAZORPAY_KEY_SECRET` or `RAZORPAY_WEBHOOK_SECRET` to the browser.
 
 In the Razorpay Dashboard, create a webhook pointing to `https://your-domain.com/api/webhooks/razorpay`, configure the same secret, and subscribe to `refund.created`, `refund.pending`, `refund.processed`, and `refund.failed`. The webhook endpoint verifies `x-razorpay-signature` and deduplicates event IDs. Admins can also use “Reconcile Razorpay status” for a processing refund.
 

@@ -2,8 +2,11 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getSessionFromCookie } from "@/lib/auth";
+import { getRazorpayConfig, getRazorpayPayment, RazorpayApiError } from "@/lib/razorpay-server";
 import { toClientOrder } from "@/lib/serializers";
 import Order from "@/models/Order";
+
+export const runtime = "nodejs";
 
 function ownsOrder(order: { customerId?: string; userEmail?: string; userPhone?: string }, session: Awaited<ReturnType<typeof getSessionFromCookie>>) {
   return Boolean(
@@ -36,9 +39,7 @@ export async function POST(req: Request) {
     if (!orderId || !razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
       return NextResponse.json({ success: false, message: "Incomplete Razorpay payment response." }, { status: 400 });
     }
-    if (!process.env.RAZORPAY_KEY_SECRET) {
-      return NextResponse.json({ success: false, message: "Razorpay verification is not configured." }, { status: 500 });
-    }
+    const { keySecret } = getRazorpayConfig();
 
     await connectToDatabase();
     const order = await Order.findOne({ orderId });
@@ -57,12 +58,43 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Razorpay order does not match this order." }, { status: 400 });
     }
 
-    const expectedSignature = createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    const expectedSignature = createHmac("sha256", keySecret)
       .update(`${order.razorpayOrderId}|${razorpayPaymentId}`)
       .digest("hex");
 
     if (!signaturesMatch(expectedSignature, razorpaySignature)) {
+      console.warn("Razorpay payment signature rejected", { reason: "invalid_signature" });
       return NextResponse.json({ success: false, message: "Invalid Razorpay payment signature." }, { status: 400 });
+    }
+
+    // Signature verification proves the response was created with the
+    // configured secret. Fetch the payment as well so an authorized, wrong-
+    // order, wrong-amount, or uncaptured payment can never mark this order paid.
+    let gatewayPayment;
+    try {
+      gatewayPayment = await getRazorpayPayment(razorpayPaymentId);
+    } catch (error) {
+      console.error("Razorpay payment lookup failed", {
+        status: error instanceof RazorpayApiError ? error.status : undefined,
+        code: error instanceof RazorpayApiError ? error.code : undefined,
+      });
+      return NextResponse.json({ success: false, message: "Razorpay payment could not be confirmed yet. Please retry." }, { status: 502 });
+    }
+
+    const expectedAmountPaise = Math.round(Number(order.finalAmount) * 100);
+    const paymentMatchesOrder =
+      gatewayPayment.order_id === razorpayOrderId &&
+      gatewayPayment.amount === expectedAmountPaise &&
+      gatewayPayment.currency === "INR" &&
+      (gatewayPayment.status === "captured" || gatewayPayment.captured === true);
+
+    if (!paymentMatchesOrder) {
+      console.warn("Razorpay payment rejected after gateway lookup", {
+        reason: "payment_mismatch_or_not_captured",
+        captured: gatewayPayment.captured === true,
+        status: gatewayPayment.status,
+      });
+      return NextResponse.json({ success: false, message: "Razorpay payment does not match this order or is not captured." }, { status: 409 });
     }
 
     const verifiedOrder = await Order.findOneAndUpdate(
@@ -90,7 +122,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, message: "Payment verified successfully.", order: toClientOrder(verifiedOrder) });
   } catch (error) {
-    console.error("Razorpay verification error:", error);
+    console.error("Razorpay verification error", {
+      status: error instanceof RazorpayApiError ? error.status : undefined,
+      code: error instanceof RazorpayApiError ? error.code : undefined,
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
     return NextResponse.json({ success: false, message: "Payment verification failed. Please retry." }, { status: 500 });
   }
 }

@@ -3,6 +3,8 @@ const RAZORPAY_API_URL = "https://api.razorpay.com/v1";
 export interface RazorpayOrderResponse {
   id: string;
   amount: number;
+  amount_paid?: number;
+  amount_due?: number;
   currency: string;
   status: string;
   receipt?: string;
@@ -15,6 +17,7 @@ export interface RazorpayPaymentResponse {
   currency: string;
   status: string;
   captured?: boolean;
+  order_id?: string;
 }
 
 export interface RazorpayRefundResponse {
@@ -29,12 +32,40 @@ export interface RazorpayRefundResponse {
   notes?: Record<string, string>;
 }
 
+export class RazorpayApiError extends Error {
+  status: number;
+  code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "RazorpayApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+let configurationLogged = false;
+
 export function getRazorpayConfig() {
-  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  // The checkout key is public by Razorpay design, but this app sends it to
+  // the browser only after the server has authenticated the customer/order.
+  // Prefer a server-only name while retaining the existing local variable.
+  const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
+  if (!configurationLogged) {
+    const mode = keyId?.startsWith("rzp_live_") ? "live" : keyId?.startsWith("rzp_test_") ? "test" : "unknown";
+    console.info("Razorpay configuration check", {
+      keyIdConfigured: Boolean(keyId),
+      keySecretConfigured: Boolean(keySecret),
+      mode,
+      webhookSecretConfigured: Boolean(process.env.RAZORPAY_WEBHOOK_SECRET),
+    });
+    configurationLogged = true;
+  }
+
   if (!keyId || !keySecret) {
-    throw new Error("Razorpay is not configured. Set NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.");
+    throw new Error("Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in the server environment.");
   }
 
   return { keyId, keySecret };
@@ -46,6 +77,10 @@ export async function createRazorpayOrder(input: {
   receipt: string;
 }): Promise<RazorpayOrderResponse> {
   const { keyId, keySecret } = getRazorpayConfig();
+  const amount = Math.round(Number(input.amount));
+  if (!Number.isInteger(amount) || amount <= 0 || input.currency !== "INR") {
+    throw new Error("Razorpay order amount or currency is invalid.");
+  }
   const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
 
   const response = await fetch(`${RAZORPAY_API_URL}/orders`, {
@@ -55,7 +90,7 @@ export async function createRazorpayOrder(input: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      amount: Math.round(input.amount),
+      amount,
       currency: input.currency,
       receipt: input.receipt,
       payment_capture: 1,
@@ -63,9 +98,9 @@ export async function createRazorpayOrder(input: {
     cache: "no-store",
   });
 
-  const data = (await response.json().catch(() => null)) as RazorpayOrderResponse & { error?: { description?: string } } | null;
+  const data = (await response.json().catch(() => null)) as RazorpayOrderResponse & { error?: { description?: string; code?: string } } | null;
   if (!response.ok || !data?.id) {
-    throw new Error(data?.error?.description || "Razorpay order creation failed.");
+    throw new RazorpayApiError(data?.error?.description || "Razorpay order creation failed.", response.status, data?.error?.code);
   }
 
   return data;
@@ -83,9 +118,15 @@ async function razorpayRequest<T>(path: string, init: RequestInit = {}): Promise
     },
     cache: "no-store",
   });
-  const data = await response.json().catch(() => null) as T & { error?: { description?: string } } | null;
-  if (!response.ok || !data) throw new Error(data?.error?.description || "Razorpay request failed.");
+  const data = await response.json().catch(() => null) as T & { error?: { description?: string; code?: string } } | null;
+  if (!response.ok || !data) {
+    throw new RazorpayApiError(data?.error?.description || "Razorpay request failed.", response.status, data?.error?.code);
+  }
   return data;
+}
+
+export function getRazorpayOrder(orderId: string) {
+  return razorpayRequest<RazorpayOrderResponse>(`/orders/${encodeURIComponent(orderId)}`);
 }
 
 export function getRazorpayPayment(paymentId: string) {

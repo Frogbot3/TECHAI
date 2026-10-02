@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getSessionFromCookie } from "@/lib/auth";
-import { createRazorpayOrder, getRazorpayConfig } from "@/lib/razorpay-server";
+import { createRazorpayOrder, getRazorpayConfig, getRazorpayOrder, RazorpayApiError } from "@/lib/razorpay-server";
 import Order from "@/models/Order";
+
+export const runtime = "nodejs";
 
 function ownsOrder(order: { customerId?: string; userEmail?: string; userPhone?: string }, session: NonNullable<Awaited<ReturnType<typeof getSessionFromCookie>>>) {
   return Boolean(
@@ -42,11 +44,36 @@ export async function POST(req: Request) {
     }
 
     const { keyId } = getRazorpayConfig();
+    const amountPaise = Math.round(Number(order.finalAmount) * 100);
     let razorpayOrderId = order.razorpayOrderId;
+    let reusedRazorpayOrder = false;
+
+    // Razorpay order IDs are account/environment-specific. Reuse a pending
+    // order when it belongs to the configured account and has the same amount;
+    // replace only an unknown or incompatible gateway order, never the app order.
+    if (razorpayOrderId) {
+      try {
+        const existingRazorpayOrder = await getRazorpayOrder(razorpayOrderId);
+        if (existingRazorpayOrder.amount === amountPaise && existingRazorpayOrder.currency === "INR") {
+          reusedRazorpayOrder = true;
+        } else {
+          razorpayOrderId = "";
+        }
+      } catch (error) {
+        const missingGatewayOrder =
+          error instanceof RazorpayApiError &&
+          (error.status === 404 || (error.status === 400 && /does not exist|not found|invalid.*order/i.test(error.message)));
+        if (missingGatewayOrder) {
+          razorpayOrderId = "";
+        } else {
+          throw error;
+        }
+      }
+    }
 
     if (!razorpayOrderId) {
       const razorpayOrder = await createRazorpayOrder({
-        amount: Math.round(Number(order.finalAmount) * 100),
+        amount: amountPaise,
         currency: "INR",
         receipt: order.orderId,
       });
@@ -60,18 +87,33 @@ export async function POST(req: Request) {
       await order.save();
     }
 
+    console.info("Razorpay checkout order prepared", {
+      reusedRazorpayOrder,
+      amountPaise,
+      currency: "INR",
+    });
+
     return NextResponse.json({
       success: true,
       keyId,
       razorpayOrderId,
-      amount: Math.round(Number(order.finalAmount) * 100),
+      amount: amountPaise,
       currency: "INR",
       orderId: order.orderId,
     });
   } catch (error) {
-    console.error("Razorpay order creation error:", error);
+    console.error("Razorpay order creation error", {
+      status: error instanceof RazorpayApiError ? error.status : undefined,
+      code: error instanceof RazorpayApiError ? error.code : undefined,
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+    const message = error instanceof RazorpayApiError && error.status === 401
+      ? "Razorpay rejected the configured credentials. Check that the key ID and secret belong to the same account and mode."
+      : error instanceof Error
+      ? error.message
+      : "Unable to start Razorpay checkout.";
     return NextResponse.json(
-      { success: false, message: (error as Error).message || "Unable to start Razorpay checkout." },
+      { success: false, message },
       { status: 502 }
     );
   }

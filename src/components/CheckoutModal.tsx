@@ -305,6 +305,17 @@ export default function CheckoutModal({
       if (!createPaymentResponse.ok || !paymentData?.success) {
         throw new Error(paymentData?.message || "Unable to start Razorpay checkout.");
       }
+      if (
+        typeof paymentData.keyId !== "string" ||
+        !paymentData.keyId ||
+        !Number.isInteger(paymentData.amount) ||
+        paymentData.amount <= 0 ||
+        paymentData.currency !== "INR" ||
+        typeof paymentData.razorpayOrderId !== "string" ||
+        !paymentData.razorpayOrderId
+      ) {
+        throw new Error("Razorpay returned an invalid checkout order. Please try again.");
+      }
 
       if (!(await loadRazorpayScript()) || !window.Razorpay) {
         throw new Error("Razorpay Checkout could not be loaded. Check your connection and try again.");
