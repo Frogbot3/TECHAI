@@ -78,5 +78,6 @@ const UserSchema = new Schema<IUser>(
 UserSchema.index({ firebaseUid: 1 }, { sparse: true });
 UserSchema.index({ email: 1 }, { sparse: true });
 UserSchema.index({ phone: 1 }, { sparse: true });
+UserSchema.index({ createdAt: -1 });
 
 export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema);

@@ -34,9 +34,9 @@ const validateCampaign = (body: Record<string, unknown>) => {
 };
 
 const getCampaignsWithProducts = async (filter: Record<string, unknown>) => {
-  const campaigns = await HeroCampaign.find(filter).sort({ priority: -1, displayOrder: 1, startAt: 1 }).limit(100).lean();
+  const campaigns = await HeroCampaign.find(filter).sort({ priority: -1, displayOrder: 1, startAt: 1 }).limit(100).read("secondaryPreferred").lean();
   const productIds = campaigns.map((campaign) => campaign.productId);
-  const products = await Product.find({ productId: { $in: productIds } }).lean();
+  const products = await Product.find({ productId: { $in: productIds } }).read("secondaryPreferred").lean();
   const productsById = new Map(products.map((product) => [product.productId, toClientProduct(product)]));
   return campaigns.map((campaign) => toClientHeroCampaign(campaign, productsById.get(campaign.productId)));
 };
@@ -58,6 +58,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ success: true, campaigns });
   } catch (error) {
     console.error("Hero campaigns GET error:", error);
+    if (includeInactive) {
+      return NextResponse.json({ success: false, message: "Campaign data is temporarily unavailable. Please retry in a moment." }, { status: 503 });
+    }
     return NextResponse.json({ success: true, campaigns: [], isFallback: true });
   }
 }

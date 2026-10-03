@@ -37,8 +37,8 @@ export async function GET(req: Request) {
     await connectToDatabase();
     const [total, refunds, counts] = await Promise.all([
       Refund.countDocuments(filter),
-      Refund.find(filter).sort({ createdAt: sort }).skip((page - 1) * limit).limit(limit).lean(),
-      Refund.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+      Refund.find(filter).sort({ createdAt: sort }).skip((page - 1) * limit).limit(limit).read("secondaryPreferred").lean(),
+      Refund.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]).read("secondaryPreferred"),
     ]);
     return NextResponse.json({
       success: true,

@@ -147,6 +147,7 @@ const OrderSchema = new Schema<IOrder>(
 
 OrderSchema.index({ trackingNumber: 1 }, { sparse: true });
 OrderSchema.index({ status: 1, createdAt: -1 });
+OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ razorpayPaymentId: 1 }, { sparse: true });
 
 export default mongoose.models.Order || mongoose.model<IOrder>("Order", OrderSchema);

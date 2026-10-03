@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import TechAiLogo from "@/components/TechAiLogo";
@@ -78,6 +78,8 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>("");
+  const [syncError, setSyncError] = useState("");
+  const liveDataAbortRef = useRef<AbortController | null>(null);
 
   // Product Add / Edit Modal States
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -140,20 +142,28 @@ export default function AdminDashboardPage() {
 
   // Fetch real-time live statistics and orders from MongoDB
   const fetchLiveData = useCallback(async (showIndicator = false) => {
+    // Never queue another full dashboard request while MongoDB is reconnecting.
+    if (liveDataAbortRef.current) return;
     if (showIndicator) setIsRefreshing(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
+    liveDataAbortRef.current = controller;
     try {
-      const res = await fetch("/api/admin/stats", { cache: "no-store" });
-      const data = await res.json();
-      if (data.success) {
-        setStats(data.stats);
-        setOrders(data.orders || []);
-        setProducts(data.products || []);
-        setCustomers(data.customers || []);
-        setLastSyncTime(new Date().toLocaleTimeString());
-      }
+      const res = await fetch("/api/admin/stats", { cache: "no-store", signal: controller.signal });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.message || "Unable to refresh dashboard data.");
+      setStats(data.stats);
+      setOrders(data.orders || []);
+      setProducts(data.products || []);
+      setCustomers(data.customers || []);
+      setLastSyncTime(new Date().toLocaleTimeString());
+      setSyncError(data.isStale ? "Showing the last successful dashboard data while the database reconnects." : "");
     } catch (error) {
-      console.error("Error fetching live admin stats:", error);
+      if ((error as Error).name !== "AbortError") console.error("Error fetching live admin stats:", error);
+      setSyncError((error as Error).name === "AbortError" ? "Dashboard sync timed out. Please retry." : "Dashboard data is temporarily unavailable. Please retry.");
     } finally {
+      window.clearTimeout(timeout);
+      if (liveDataAbortRef.current === controller) liveDataAbortRef.current = null;
       setIsLoading(false);
       if (showIndicator) setIsRefreshing(false);
     }
@@ -178,12 +188,14 @@ export default function AdminDashboardPage() {
     verifySession();
   }, [router, fetchLiveData]);
 
-  // Periodic polling for live updates
+  // A full dashboard snapshot is expensive. Poll sparingly and never overlap requests.
   useEffect(() => {
     if (authChecking) return;
-    const interval = setInterval(() => fetchLiveData(false), 6000);
+    const interval = setInterval(() => fetchLiveData(false), 30000);
     return () => clearInterval(interval);
   }, [authChecking, fetchLiveData]);
+
+  useEffect(() => () => liveDataAbortRef.current?.abort(), []);
 
   const handleLogout = async () => {
     try {
@@ -820,6 +832,12 @@ export default function AdminDashboardPage() {
 
       {/* Main Dashboard Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 relative z-10">
+        {syncError && (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-800/70 bg-amber-950/50 px-4 py-3 text-xs font-bold text-amber-200">
+            <span className="flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{syncError}</span>
+            <button type="button" onClick={() => fetchLiveData(true)} disabled={isRefreshing} className="rounded-lg border border-amber-700 bg-amber-900/60 px-3 py-1.5 text-[11px] font-extrabold text-amber-100 hover:bg-amber-900 disabled:opacity-60">Retry now</button>
+          </div>
+        )}
         {/* KPI Metrics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {statCards.map((card, idx) => {

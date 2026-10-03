@@ -87,4 +87,6 @@ const ProductSchema = new Schema<IProduct>(
   { timestamps: true }
 );
 
+ProductSchema.index({ createdAt: -1 });
+
 export default mongoose.models.Product || mongoose.model<IProduct>("Product", ProductSchema);

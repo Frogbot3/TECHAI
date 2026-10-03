@@ -1,0 +1,10 @@
+{
+  "/api/admin/stats/route": "app/api/admin/stats/route.js",
+  "/api/admin/session/route": "app/api/admin/session/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
+  "/wishlist/page": "app/wishlist/page.js",
+  "/product/[slug]/page": "app/product/[slug]/page.js",
+  "/admin/login/page": "app/admin/login/page.js",
+  "/admin/dashboard/page": "app/admin/dashboard/page.js"
+}

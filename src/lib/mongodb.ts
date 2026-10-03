@@ -24,18 +24,33 @@ export async function connectToDatabase() {
   if (!MONGODB_URI) {
     throw new Error("Database is not configured. Set MONGODB_URI in the deployment environment.");
   }
-  if (cached.conn) {
+  // A cached Mongoose instance is not necessarily connected. Reusing one after
+  // Atlas/network disconnects is what previously left requests waiting on a
+  // dead topology.
+  if (cached.conn && mongoose.connection.readyState === 1) {
     return cached.conn;
+  }
+  if (mongoose.connection.readyState !== 2) {
+    cached.conn = null;
+    cached.promise = null;
   }
 
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
       dbName: MONGODB_DB_NAME,
-      maxPoolSize: 10,
+      maxPoolSize: 5,
+      maxConnecting: 1,
       minPoolSize: 0,
       maxIdleTimeMS: 10000,
-      serverSelectionTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 3000,
+      connectTimeoutMS: 3000,
+      socketTimeoutMS: 10000,
+      waitQueueTimeoutMS: 3000,
+      heartbeatFrequencyMS: 10000,
+      timeoutMS: 5000,
+      retryReads: true,
+      retryWrites: true,
     };
 
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => {
