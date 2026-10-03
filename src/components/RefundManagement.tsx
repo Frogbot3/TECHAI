@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Clock3, Eye, ExternalLink, FileText, Loader2, RefreshCw, RotateCcw, Search, ShieldCheck, XCircle } from "lucide-react";
 import { Refund, RefundStatus } from "@/lib/types";
 
@@ -35,12 +35,13 @@ export default function RefundManagement() {
 
   const selected = useMemo(() => refunds.find((refund) => refund.id === selectedId) || null, [refunds, selectedId]);
 
-  const loadRefunds = async () => {
+  const loadRefunds = useCallback(async (overrideSearch?: string) => {
     setIsLoading(true);
     setError("");
     try {
+      const searchValue = overrideSearch !== undefined ? overrideSearch : search;
       const params = new URLSearchParams({ status, sort });
-      if (search.trim()) params.set("search", search.trim());
+      if (searchValue.trim()) params.set("search", searchValue.trim());
       const response = await fetch(`/api/admin/refunds?${params.toString()}`, { cache: "no-store" });
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.message || "Could not load refunds.");
@@ -52,11 +53,11 @@ export default function RefundManagement() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [status, sort, search]);
 
   useEffect(() => { loadRefunds(); }, [status, sort]);
   useEffect(() => {
-    const timer = window.setTimeout(() => { if (search.trim()) loadRefunds(); }, 350);
+    const timer = window.setTimeout(() => { loadRefunds(search); }, 350);
     return () => window.clearTimeout(timer);
   }, [search]);
   useEffect(() => {
@@ -114,7 +115,7 @@ export default function RefundManagement() {
         <label className="relative flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search refund, order, or customer..." className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-cyan-500" /></label>
         <select value={status} onChange={(event) => setStatus(event.target.value as "ALL" | RefundStatus)} className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200"><option value="ALL">All statuses</option>{STATUS_OPTIONS.slice(1).map((option) => <option key={option} value={option}>{statusLabel(option as RefundStatus)}</option>)}</select>
         <select value={sort} onChange={(event) => setSort(event.target.value as "newest" | "oldest")} className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select>
-        <button type="button" onClick={loadRefunds} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-800 px-3 py-2 text-xs font-extrabold text-cyan-300 hover:bg-slate-700"><RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />Refresh</button>
+        <button type="button" onClick={() => loadRefunds()} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-800 px-3 py-2 text-xs font-extrabold text-cyan-300 hover:bg-slate-700"><RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />Refresh</button>
       </div>
       {error && <p role="alert" className="rounded-xl border border-rose-800 bg-rose-950/40 px-3 py-2 text-xs font-bold text-rose-300">{error}</p>}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.75fr)]">

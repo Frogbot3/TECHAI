@@ -17,8 +17,24 @@ import {
 } from "@/lib/refunds";
 import { sendRefundNotification } from "@/lib/refund-notifications";
 
+function normalizeEmail(value?: string) {
+  return value?.trim().toLowerCase() || "";
+}
+
+function normalizePhone(value?: string) {
+  return (value || "").replace(/\D/g, "");
+}
+
 function ownsOrder(order: { customerId?: string; userEmail?: string; userPhone?: string }, session: { id: string; email: string; phone: string }) {
-  return Boolean(order.customerId && order.customerId === session.id);
+  if (order.customerId) return order.customerId === session.id;
+
+  // Orders created before customer IDs were stored can still be safely
+  // recovered when they match an identifier in the verified session.
+  const orderEmail = normalizeEmail(order.userEmail);
+  const sessionEmail = normalizeEmail(session.email);
+  const orderPhone = normalizePhone(order.userPhone);
+  const sessionPhone = normalizePhone(session.phone);
+  return Boolean((orderEmail && sessionEmail && orderEmail === sessionEmail) || (orderPhone && sessionPhone && orderPhone === sessionPhone));
 }
 
 export async function POST(req: Request) {
@@ -45,6 +61,10 @@ export async function POST(req: Request) {
     await connectToDatabase();
     const order = await Order.findOne({ orderId });
     if (!order || !ownsOrder(order, session)) return NextResponse.json({ success: false, message: "Order not found." }, { status: 404 });
+    if (!order.customerId) {
+      order.customerId = session.id;
+      await order.save();
+    }
     if (order.status !== "Delivered" || order.paymentStatus !== "Paid" || !order.razorpayPaymentId) {
       return NextResponse.json({ success: false, message: "Only successfully paid and delivered Razorpay orders are eligible." }, { status: 409 });
     }

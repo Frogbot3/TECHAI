@@ -60,9 +60,10 @@ export function getRefundableLineAmountPaise(
   productId: string,
   quantity: number
 ) {
-  const lines = getOrderLines(order).filter((line) => line.productId === productId);
-  const totalBasePaise = lines.reduce((sum, line) => sum + toPaise(line.price) * line.quantity, 0);
-  if (!totalBasePaise || quantity < 1) return 0;
+  const orderLines = getOrderLines(order);
+  const lines = orderLines.filter((line) => line.productId === productId);
+  const totalBasePaise = orderLines.reduce((sum, line) => sum + toPaise(line.price) * line.quantity, 0);
+  if (!lines.length || !totalBasePaise || quantity < 1) return 0;
 
   const discountPaise = Math.min(toPaise(order.discountAmount), totalBasePaise);
   const lineBasePaise = lines.reduce((sum, line) => sum + toPaise(line.price) * line.quantity, 0);

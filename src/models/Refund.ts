@@ -79,7 +79,7 @@ const RefundSchema = new Schema<IRefund>(
     customerEmail: { type: String, default: "" },
     customerPhone: { type: String, default: "" },
     paymentId: { type: String, required: true, index: true },
-    razorpayRefundId: { type: String, default: "", sparse: true, unique: true },
+    razorpayRefundId: { type: String, sparse: true, unique: true },
     items: [
       {
         itemKey: { type: String, required: true },

@@ -132,13 +132,13 @@ export default function RefundRequestModal({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Request refund">
-      <form onSubmit={submit} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+      <form onSubmit={submit} className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+        <div className="mx-5 mt-5 flex items-start justify-between gap-4 border-b border-slate-100 pb-4 sm:mx-6 sm:mt-6">
           <div><p className="text-[10px] font-black uppercase tracking-wider text-cyan-700">Order #{order.id}</p><h2 className="mt-1 text-xl font-black text-slate-950">Refund / return request</h2><p className="mt-1 text-xs text-slate-500">Eligible until {deadline ? deadline.toLocaleDateString("en-IN") : "the delivery date is confirmed"}.</p></div>
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900" aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
 
-        <div className="mt-5 space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5 sm:px-6">
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-900"><b>Policy:</b> requests are accepted within 7 days of successful delivery. Shipping charges are not refundable. Approved amounts are processed through the original captured Razorpay payment.</div>
           <fieldset className="space-y-2"><legend className="text-xs font-black text-slate-900">Select product and quantity</legend>
             {order.items.map((item) => {
@@ -153,8 +153,10 @@ export default function RefundRequestModal({
           <label className="block space-y-1 text-xs font-bold text-slate-700">Description <span className="font-normal text-slate-400">(optional)</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={1200} rows={3} placeholder="Tell us what happened..." className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium outline-none focus:border-cyan-500" /></label>
           <label className="block space-y-1 text-xs font-bold text-slate-700">Evidence link <span className="font-normal text-slate-400">(optional HTTPS image URL)</span><input value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} type="url" placeholder="https://..." className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium outline-none focus:border-cyan-500" /></label>
           <div className="flex items-center justify-between rounded-2xl bg-slate-950 px-4 py-3 text-white"><span className="text-xs font-bold text-slate-300">Estimated refund</span><span className="text-lg font-black text-emerald-300">{money(estimatedPaise)}</span></div>
+        </div>
+        <div className="shrink-0 border-t border-slate-100 bg-white px-5 py-3 sm:px-6">
           {error && <p role="alert" className="flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700"><AlertCircle className="h-4 w-4 shrink-0" />{error}</p>}
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-extrabold text-slate-700 hover:bg-slate-50">Not now</button><button type="submit" disabled={isSubmitting} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-cyan-700 disabled:opacity-60">{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4 text-cyan-300" />}Submit request</button></div>
+          <div className={`flex flex-col-reverse gap-2 sm:flex-row sm:justify-end ${error ? "mt-3" : ""}`}><button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-extrabold text-slate-700 hover:bg-slate-50">Not now</button><button type="submit" disabled={isSubmitting} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-cyan-700 disabled:opacity-60">{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4 text-cyan-300" />}Submit request</button></div>
         </div>
       </form>
     </div>
