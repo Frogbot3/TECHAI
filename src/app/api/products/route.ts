@@ -46,19 +46,37 @@ const seedOperations = () =>
     },
   }));
 
+declare global {
+  // eslint-disable-next-line no-var
+  var techAiCatalogSeedPromise: Promise<void> | undefined;
+}
+
+async function ensureCatalogSeeded() {
+  if (!global.techAiCatalogSeedPromise) {
+    global.techAiCatalogSeedPromise = (async () => {
+      // The old implementation performed a full bulk write on every catalog
+      // request. Existing stores only need this one-time additive seed check.
+      const hasCatalog = await Product.exists({}).read("secondaryPreferred");
+      if (!hasCatalog) await Product.bulkWrite(seedOperations(), { ordered: false });
+    })().catch((error) => {
+      global.techAiCatalogSeedPromise = undefined;
+      throw error;
+    });
+  }
+  return global.techAiCatalogSeedPromise;
+}
+
 export async function GET(req: Request) {
   try {
     await connectToDatabase();
-
-    // Keep the database additive so new AI catalog products appear for existing stores.
-    await Product.bulkWrite(seedOperations(), { ordered: false });
+    await ensureCatalogSeeded();
 
     const searchParams = new URL(req.url).searchParams;
     const page = Math.max(1, Number(searchParams.get("page") || 1));
     const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit") || 100)));
     const [total, products] = await Promise.all([
-      Product.countDocuments({}),
-      Product.find({}).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      Product.countDocuments({}).read("secondary").maxTimeMS(3_000),
+      Product.find({}).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).read("secondary").maxTimeMS(3_000).lean(),
     ]);
     const clientProducts = products.map(toClientProduct);
 

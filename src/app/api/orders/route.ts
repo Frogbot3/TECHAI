@@ -22,6 +22,17 @@ const buildProductQuery = (id: string) => {
 const normalizeProductTitle = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+const findRecentOrders = (filter: Record<string, unknown>, page: number, limit: number) =>
+  Order.find(filter)
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    // Order history is read-only here. Keep it off the unstable primary;
+    // this replica set has two secondaries available for customer/admin lists.
+    .read("secondary")
+    .maxTimeMS(3_000)
+    .lean();
+
 export async function POST(req: Request) {
   let decrementedProducts: { id: string; quantity: number }[] = [];
 
@@ -297,7 +308,7 @@ export async function GET(req: Request) {
         if (phone) orConditions.push({ userPhone: phone }, { "shippingAddress.phone": phone });
         filter = { $or: orConditions };
       }
-      const orders = await Order.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+      const orders = await findRecentOrders(filter, page, limit);
       return NextResponse.json({ success: true, count: orders.length, orders: orders.map(toClientOrder) });
     }
 
@@ -317,14 +328,14 @@ export async function GET(req: Request) {
         filter = { $and: [{ customerId: customerSession.id }, { $or: searchOr }] };
       }
 
-      const orders = await Order.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+      const orders = await findRecentOrders(filter, page, limit);
       return NextResponse.json({ success: true, count: orders.length, orders: orders.map(toClientOrder) });
     }
 
     // Never expose private order data to unauthenticated visitors.
     return NextResponse.json({ success: false, message: "Please sign in to view your orders.", count: 0, orders: [] }, { status: 401 });
   } catch (error) {
-    console.error("GET orders route error:", error);
-    return NextResponse.json({ success: false, message: (error as Error).message }, { status: 500 });
+    console.warn("Orders list unavailable:", error instanceof Error ? error.name : "unknown error");
+    return NextResponse.json({ success: false, message: "Orders are temporarily unavailable. Please retry in a moment.", count: 0, orders: [] }, { status: 503 });
   }
 }
