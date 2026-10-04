@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IUser extends Document {
   phone?: string;
+  verifiedPhone?: string;
   name?: string;
   email?: string;
   avatar?: string;
@@ -51,8 +52,9 @@ const AddressSchema = new Schema(
 const UserSchema = new Schema<IUser>(
   {
     phone: { type: String, default: "" },
+    verifiedPhone: { type: String },
     name: { type: String, default: "Tech AI Customer" },
-    email: { type: String, default: "" },
+    email: { type: String, default: "", trim: true, lowercase: true },
     avatar: { type: String, default: "" },
     googleId: { type: String, default: "" },
     /** Firebase UID for stable cross-provider identity linking */
@@ -74,10 +76,14 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true }
 );
 
-// Compound sparse index: do not enforce uniqueness on empty strings (legacy docs)
-UserSchema.index({ firebaseUid: 1 }, { sparse: true });
-UserSchema.index({ email: 1 }, { sparse: true });
+// Partial unique indexes exclude empty legacy identifiers. New Google/OTP
+// sign-ins with the same verified identifier must reuse the existing account.
+UserSchema.index({ firebaseUid: 1 }, { unique: true, name: "unique_firebase_identity", partialFilterExpression: { firebaseUid: { $gt: "" } } });
+UserSchema.index({ email: 1 }, { unique: true, name: "unique_email_identity", partialFilterExpression: { email: { $gt: "" } } });
+// Legacy phone fields also contain unverified delivery contacts and can be
+// shared by different people. Enforce identity uniqueness only after OTP proof.
 UserSchema.index({ phone: 1 }, { sparse: true });
+UserSchema.index({ verifiedPhone: 1 }, { unique: true, name: "unique_verified_phone_identity", partialFilterExpression: { verifiedPhone: { $gt: "" } } });
 UserSchema.index({ createdAt: -1 });
 
 export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema);

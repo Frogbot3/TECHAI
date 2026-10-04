@@ -43,6 +43,10 @@ export function useTechAiStore() {
   const [products, setProducts] = useState<Product[]>([]);
   const [heroCampaigns, setHeroCampaigns] = useState<HeroCampaign[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [hasMoreOrders, setHasMoreOrders] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [user, setUser] = useState<User | null>(null);
@@ -89,23 +93,32 @@ export function useTechAiStore() {
     return heroCampaigns;
   };
 
-  const refreshOrders = async (customerId?: string) => {
+  const refreshOrders = async (customerId?: string, page = 1) => {
     const activeCustomerId = customerId || user?.id;
     if (!activeCustomerId) {
       setOrders([]);
       return [];
     }
     try {
-      const response = await fetch("/api/orders", { cache: "no-store" });
+      setOrdersLoading(true);
+      setOrdersError("");
+      const response = await fetch(`/api/orders?page=${page}&limit=50`, { cache: "no-store" });
       const data = await response.json();
       if (data.success && Array.isArray(data.orders)) {
-        const normalized = data.orders.map(toClientOrder);
+        const incoming = data.orders.map(toClientOrder) as Order[];
+        const normalized = page === 1 ? incoming : [...orders, ...incoming.filter(item => !orders.some(existing => existing.id === item.id))];
+        setOrdersPage(page);
+        setHasMoreOrders(Boolean(data.hasMore));
         setOrders(normalized);
         setStorage(ordersKeyFor(activeCustomerId)!, normalized);
         return normalized;
       }
+      setOrdersError(data.message || "Unable to load orders.");
     } catch (err) {
       console.error("Refresh orders error:", err);
+      setOrdersError("Unable to load orders. Please retry.");
+    } finally {
+      setOrdersLoading(false);
     }
     return orders;
   };
@@ -337,6 +350,8 @@ export function useTechAiStore() {
     }
 
     const savedOrder = toClientOrder(data.order);
+    // Reflect the just-saved delivery address without waiting for a new login.
+    if (user) setAuthenticatedUser({ ...user, addresses: [...(user.addresses || []), savedOrder.shippingAddress] });
     const updatedOrders = [savedOrder, ...orders.filter((order) => order.id !== savedOrder.id)];
     updateOrders(updatedOrders);
 
@@ -480,6 +495,10 @@ export function useTechAiStore() {
     refreshProducts,
     refreshHeroCampaigns,
     refreshOrders,
+    hasMoreOrders,
+    ordersLoading,
+    ordersError,
+    loadMoreOrders: () => refreshOrders(undefined, ordersPage + 1),
     refreshSession,
     refreshWishlist,
     addProduct,

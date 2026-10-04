@@ -4,7 +4,7 @@ const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || "techai";
 
 if (!MONGODB_URI) {
-  console.warn("⚠️ MONGODB_URI environment variable is not defined. Falling back to local MongoDB.");
+  console.warn("⚠️ MONGODB_URI environment variable is not defined. Database requests will fail until configured.");
 }
 
 interface MongooseCache {
@@ -17,8 +17,8 @@ declare global {
   var mongooseCache: MongooseCache | undefined;
 }
 
-const cached: MongooseCache = global.mongooseCache ?? { conn: null, promise: null };
-global.mongooseCache = cached;
+const cached: MongooseCache = globalThis.mongooseCache ?? { conn: null, promise: null };
+globalThis.mongooseCache = cached;
 
 export async function connectToDatabase() {
   if (!MONGODB_URI) {
@@ -30,25 +30,22 @@ export async function connectToDatabase() {
   if (cached.conn && mongoose.connection.readyState === 1) {
     return cached.conn;
   }
-  if (mongoose.connection.readyState !== 2) {
-    cached.conn = null;
-    cached.promise = null;
-  }
+
 
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
       dbName: MONGODB_DB_NAME,
-      maxPoolSize: 5,
-      maxConnecting: 1,
+      maxPoolSize: 10,
+      maxConnecting: 2,
       minPoolSize: 0,
-      maxIdleTimeMS: 10000,
-      serverSelectionTimeoutMS: 3000,
-      connectTimeoutMS: 3000,
-      socketTimeoutMS: 10000,
-      waitQueueTimeoutMS: 3000,
+      maxIdleTimeMS: 60000,
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 20000,
+      waitQueueTimeoutMS: 10000,
       heartbeatFrequencyMS: 10000,
-      timeoutMS: 5000,
+      timeoutMS: 15000,
       retryReads: true,
       retryWrites: true,
     };
@@ -65,6 +62,7 @@ export async function connectToDatabase() {
 
   try {
     cached.conn = await cached.promise;
+    cached.promise = null;
   } catch (e) {
     cached.promise = null;
     throw e;

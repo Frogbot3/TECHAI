@@ -79,6 +79,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!value) return NextResponse.json({ success: false, message: "Invalid campaign payload." }, { status: 400 });
     const product = await Product.findOne({ productId: value.productId });
     if (!product) return NextResponse.json({ success: false, message: "Selected product does not exist." }, { status: 400 });
+    value.price = Number(product.price);
+    value.originalPrice = Number(product.originalPrice || product.price);
+    value.discountPercent = value.originalPrice > value.price ? Math.round((1 - value.price / value.originalPrice) * 100) : 0;
+    value.subtitle = product.description;
     const campaign = await HeroCampaign.findOneAndUpdate(buildQuery(id), { $set: value }, { new: true });
     return NextResponse.json({ success: true, campaign: toClientHeroCampaign(campaign, toClientProduct(product)) });
   } catch (error) {

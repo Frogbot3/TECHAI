@@ -4,6 +4,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { getSessionFromCookie } from "@/lib/auth";
 import { getRazorpayConfig, getRazorpayPayment, RazorpayApiError } from "@/lib/razorpay-server";
 import { toClientOrder } from "@/lib/serializers";
+import { applyPayment } from "@/lib/payment-state";
 import Order from "@/models/Order";
 
 export const runtime = "nodejs";
@@ -40,13 +41,6 @@ export async function POST(req: Request) {
     const order = await Order.findOne({ orderId });
     if (!order || !ownsOrder(order, session)) {
       return NextResponse.json({ success: false, message: "Order not found." }, { status: 404 });
-    }
-
-    if (order.paymentStatus === "Paid") {
-      if (order.razorpayPaymentId === razorpayPaymentId) {
-        return NextResponse.json({ success: true, message: "Payment was already verified.", order: toClientOrder(order) });
-      }
-      return NextResponse.json({ success: false, message: "This order has already been paid." }, { status: 409 });
     }
 
     if (!order.razorpayOrderId || order.razorpayOrderId !== razorpayOrderId) {
@@ -92,30 +86,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Razorpay payment does not match this order or is not captured." }, { status: 409 });
     }
 
-    const verifiedOrder = await Order.findOneAndUpdate(
-      { orderId, paymentStatus: { $ne: "Paid" }, razorpayOrderId },
-      {
-        $set: {
-          paymentStatus: "Paid",
-          razorpayPaymentId,
-          razorpaySignature,
-          "paymentDetails.provider": "Razorpay",
-          "paymentDetails.gatewayStatus": "Payment verified",
-          "paymentDetails.transactionId": razorpayPaymentId,
-        },
-      },
-      { new: true }
-    );
-
-    if (!verifiedOrder) {
-      const currentOrder = await Order.findOne({ orderId });
-      if (currentOrder?.paymentStatus === "Paid" && currentOrder.razorpayPaymentId === razorpayPaymentId) {
-        return NextResponse.json({ success: true, message: "Payment was already verified.", order: toClientOrder(currentOrder) });
-      }
+    const result = await applyPayment(gatewayPayment);
+    if (result.kind !== "processed" || !result.order) {
       return NextResponse.json({ success: false, message: "Payment could not be finalized." }, { status: 409 });
     }
-
-    return NextResponse.json({ success: true, message: "Payment verified successfully.", order: toClientOrder(verifiedOrder) });
+    return NextResponse.json({ success: true, message: "Payment verified successfully.", order: toClientOrder(result.order) });
   } catch (error) {
     console.error("Razorpay verification error", {
       status: error instanceof RazorpayApiError ? error.status : undefined,

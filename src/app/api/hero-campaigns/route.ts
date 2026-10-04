@@ -19,26 +19,20 @@ const validateCampaign = (body: Record<string, unknown>) => {
   const ctaText = String(body.ctaText || "").trim();
   const startAt = parseDate(body.startAt);
   const endAt = parseDate(body.endAt);
-  const price = Number(body.price);
-  const originalPrice = Number(body.originalPrice);
-
   if (!name || !badge || !productId || !subtitle || !offerText || !ctaText) return "Name, badge, product, subtitle, offer text, and CTA are required.";
   if (!startAt || !endAt) return "Start and end dates must be valid.";
   if (endAt <= startAt) return "End date must be after the start date.";
-  if (!Number.isFinite(price) || price < 0) return "Selling price cannot be negative.";
-  if (!Number.isFinite(originalPrice) || originalPrice < 0) return "MRP cannot be negative.";
-  if (originalPrice < price) return "MRP cannot be lower than the selling price.";
   if (!["solid", "gradient"].includes(String(body.backgroundStyle || "solid"))) return "Background style is invalid.";
 
   return null;
 };
 
-const getCampaignsWithProducts = async (filter: Record<string, unknown>) => {
-  const campaigns = await HeroCampaign.find(filter).sort({ priority: -1, displayOrder: 1, startAt: 1 }).limit(100).read("secondaryPreferred").lean();
+const getCampaignsWithProducts = async (filter: Record<string, unknown>, includeMissing = false) => {
+  const campaigns = await HeroCampaign.find(filter).sort({ priority: -1, displayOrder: 1, startAt: 1 }).limit(100).read("primary").lean();
   const productIds = campaigns.map((campaign) => campaign.productId);
   const products = await Product.find({ productId: { $in: productIds } }).read("secondaryPreferred").lean();
   const productsById = new Map(products.map((product) => [product.productId, toClientProduct(product)]));
-  return campaigns.map((campaign) => toClientHeroCampaign(campaign, productsById.get(campaign.productId)));
+  return campaigns.filter(campaign => includeMissing || productsById.has(campaign.productId)).map((campaign) => toClientHeroCampaign(campaign, productsById.get(campaign.productId)));
 };
 
 export async function GET(req: Request) {
@@ -54,7 +48,7 @@ export async function GET(req: Request) {
     const filter = includeInactive
       ? {}
       : { isActive: true, startAt: { $lte: now }, endAt: { $gte: now } };
-    const campaigns = await getCampaignsWithProducts(filter);
+    const campaigns = await getCampaignsWithProducts(filter, includeInactive);
     return NextResponse.json({ success: true, campaigns });
   } catch (error) {
     console.error("Hero campaigns GET error:", error);
@@ -79,15 +73,15 @@ export async function POST(req: Request) {
     const product = await Product.findOne({ productId });
     if (!product) return NextResponse.json({ success: false, message: "Selected product does not exist." }, { status: 400 });
 
-    const price = Number(body.price);
-    const originalPrice = Number(body.originalPrice);
+    const price = Number(product.price);
+    const originalPrice = Number(product.originalPrice || product.price);
     const campaign = await HeroCampaign.create({
       campaignId: String(body.id || `campaign-${Date.now()}`),
       name: String(body.name).trim(),
       badge: String(body.badge).trim(),
       productId,
       titleOverride: String(body.titleOverride || "").trim(),
-      subtitle: String(body.subtitle).trim(),
+      subtitle: product.description,
       price,
       originalPrice,
       discountPercent: originalPrice > price ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0,

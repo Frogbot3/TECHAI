@@ -13,6 +13,8 @@
  * This endpoint only verifies EMAIL OTP.
  */
 
+import { getJwtSecret } from "@/lib/auth";
+import { escapeRegex } from "@/lib/query";
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { CUSTOMER_SESSION_COOKIE, setSessionCookie, signSession } from "@/lib/auth";
@@ -20,11 +22,10 @@ import { toClientUser } from "@/lib/serializers";
 import User from "@/models/User";
 import { createHmac, timingSafeEqual } from "crypto";
 
-const OTP_SECRET = process.env.JWT_SECRET || "techai_otp_hmac_secret";
 const MAX_ATTEMPTS = 5;
 
 function hashOtp(otp: string, email: string): string {
-  return createHmac("sha256", OTP_SECRET).update(`${email}:${otp}`).digest("hex");
+  return createHmac("sha256", getJwtSecret()).update(`${email}:${otp}`).digest("hex");
 }
 
 function safeCompare(a: string, b: string): boolean {
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
     await connectToDatabase();
 
     const dbUser = await User.findOne({
-      email: { $regex: `^${rawEmail}$`, $options: "i" },
+      email: { $regex: `^${escapeRegex(rawEmail)}$`, $options: "i" },
     });
 
     // Generic error: do not reveal whether an account exists or OTP was sent

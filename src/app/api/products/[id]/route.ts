@@ -1,3 +1,4 @@
+import { validateProductImages } from "@/lib/product-images";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
@@ -18,9 +19,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (session?.role !== "admin") return NextResponse.json({ success: false, message: "Administrator access required." }, { status: 403 });
     const { id } = await params;
     const body = await req.json();
+    const imageError = validateProductImages(body);
+    if (imageError) return NextResponse.json({ success: false, message: imageError }, { status: 400 });
     await connectToDatabase();
 
-    const product = await Product.findOneAndUpdate(buildProductQuery(id), { $set: body }, { new: true });
+    const product = await Product.findOneAndUpdate(buildProductQuery(id), { $set: body }, { new: true, runValidators: true });
 
     if (!product) {
       return NextResponse.json({ success: false, message: "Product not found" }, { status: 404 });

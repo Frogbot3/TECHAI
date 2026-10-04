@@ -14,6 +14,8 @@
  * This endpoint only handles EMAIL OTP.
  */
 
+import { getJwtSecret } from "@/lib/auth";
+import { escapeRegex } from "@/lib/query";
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import User from "@/models/User";
@@ -26,12 +28,11 @@ const resend =
     : null;
 
 const senderEmail = process.env.OTP_SENDER_EMAIL || "TECH AI <no-reply@techai.store>";
-const OTP_SECRET = process.env.JWT_SECRET || "techai_otp_hmac_secret";
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds
 
 function hashOtp(otp: string, email: string): string {
-  return createHmac("sha256", OTP_SECRET).update(`${email}:${otp}`).digest("hex");
+  return createHmac("sha256", getJwtSecret()).update(`${email}:${otp}`).digest("hex");
 }
 
 function generateSecureOtp(): string {
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
 
     // ── Rate limiting check ──
     const existingUser = await User.findOne({
-      email: { $regex: `^${rawEmail}$`, $options: "i" },
+      email: { $regex: `^${escapeRegex(rawEmail)}$`, $options: "i" },
     });
 
     if (existingUser?.emailOtpLastSentAt) {
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
 
     // ── Upsert user with hashed OTP (never store plaintext) ──
     await User.findOneAndUpdate(
-      { email: { $regex: `^${rawEmail}$`, $options: "i" } },
+      { email: { $regex: `^${escapeRegex(rawEmail)}$`, $options: "i" } },
       {
         $set: {
           email: rawEmail,

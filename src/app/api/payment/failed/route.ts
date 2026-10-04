@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getSessionFromCookie } from "@/lib/auth";
+import { getRazorpayPayment } from "@/lib/razorpay-server";
+import { applyPayment } from "@/lib/payment-state";
 import Order from "@/models/Order";
 
 export async function POST(req: Request) {
@@ -8,7 +10,7 @@ export async function POST(req: Request) {
     const session = await getSessionFromCookie();
     if (!session) return NextResponse.json({ success: false, message: "Authentication required." }, { status: 401 });
 
-    const { orderId, reason } = await req.json();
+    const { orderId, paymentId } = await req.json();
     await connectToDatabase();
     const order = await Order.findOne({
       orderId,
@@ -16,18 +18,13 @@ export async function POST(req: Request) {
     });
 
     if (!order) return NextResponse.json({ success: false, message: "Order not found." }, { status: 404 });
-    if (order.paymentStatus === "Paid") {
-      return NextResponse.json({ success: false, message: "A paid order cannot be marked as failed." }, { status: 409 });
+    if (typeof paymentId !== "string" || !/^pay_[A-Za-z0-9]+$/.test(paymentId)) {
+      return NextResponse.json({ success: true, message: "Awaiting verified gateway event." }, { status: 202 });
     }
-
-    order.paymentStatus = "Failed";
-    order.paymentDetails = {
-      ...(order.paymentDetails || {}),
-      provider: "Razorpay",
-      gatewayStatus: "Payment failed",
-      paymentNote: typeof reason === "string" ? reason.slice(0, 160) : "Payment was declined or failed",
-    };
-    await order.save();
+    const payment = await getRazorpayPayment(paymentId);
+    if (payment.order_id !== order.razorpayOrderId) return NextResponse.json({ success: false, message: "Payment does not belong to this order." }, { status: 400 });
+    const result = await applyPayment(payment);
+    if (result.kind !== "processed") return NextResponse.json({ success: false, message: "Payment status is not confirmed." }, { status: 409 });
 
     return NextResponse.json({ success: true, message: "Payment failure recorded." });
   } catch (error) {

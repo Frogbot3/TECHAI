@@ -3,7 +3,7 @@ import { ADMIN_SESSION_COOKIE, getSessionFromCookie } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import Refund from "@/models/Refund";
 import Order from "@/models/Order";
-import { createRazorpayRefund, getRazorpayPayment, listRazorpayRefunds } from "@/lib/razorpay-server";
+import { createRazorpayRefund, getRazorpayPayment, listRazorpayRefunds, RazorpayApiError } from "@/lib/razorpay-server";
 import { getRefundableOrderAmountPaise, getReservedRefundAmountPaise } from "@/lib/refunds";
 import { toClientRefund } from "@/lib/serializers";
 import { sendRefundNotification } from "@/lib/refund-notifications";
@@ -82,6 +82,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         void sendRefundNotification(saved || locked, "REFUND_PROCESSING").catch((error) => console.error("Refund notification error:", error));
         return NextResponse.json({ success: true, refund: toClientRefund(saved || locked), message: "Refund accepted by Razorpay and awaiting confirmation." });
       }
+      // An uncertain transport failure may have reached Razorpay. Keep the
+      // refund reserved until reconciliation establishes its outcome.
+      const definitiveRejection = gatewayError instanceof RazorpayApiError && gatewayError.status >= 400 && gatewayError.status < 500 && gatewayError.status !== 429;
+      if (!definitiveRejection) return NextResponse.json({ success: false, message: "Razorpay confirmation is delayed. Reconcile this refund before retrying.", refund: toClientRefund(locked) }, { status: 502 });
       const failed = await Refund.findOneAndUpdate(
         { refundId: locked.refundId, status: "REFUND_PROCESSING" },
         { $set: { status: "FAILED", failureReason: gatewayError instanceof Error ? gatewayError.message.slice(0, 500) : "Razorpay refund failed." }, $push: { history: addHistory("FAILED", "Razorpay refund initiation failed.", session.id) } },

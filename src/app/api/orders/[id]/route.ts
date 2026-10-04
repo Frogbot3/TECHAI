@@ -52,9 +52,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });
     }
 
-    if (paymentStatus === "Paid" && order.paymentStatus !== "Paid") {
+    if (paymentStatus && paymentStatus !== order.paymentStatus && order.paymentMethod !== "COD") {
       return NextResponse.json(
-        { success: false, message: "Paid status can only be set after Razorpay signature verification." },
+        { success: false, message: "Online payment status is managed by verified Razorpay events." },
         { status: 403 }
       );
     }

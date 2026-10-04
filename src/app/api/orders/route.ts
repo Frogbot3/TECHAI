@@ -7,6 +7,8 @@ import Order from "@/models/Order";
 import Product from "@/models/Product";
 import User from "@/models/User";
 import { CartItem } from "@/lib/types";
+import { databaseErrorResponse } from "@/lib/database-errors";
+import { pagination, escapeRegex } from "@/lib/query";
 import { randomUUID } from "crypto";
 
 const createOrderId = () => `TECHAI-ORD-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
@@ -24,12 +26,13 @@ const normalizeProductTitle = (value: string) =>
 
 const findRecentOrders = (filter: Record<string, unknown>, page: number, limit: number) =>
   Order.find(filter)
+    // Inline upload data is served separately; it can otherwise make a short
+    // indexed history query transfer megabytes before any order is displayed.
+    .select({ "items.image": 0, "items.normalizedImage": 0 })
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
-    .limit(limit)
-    // Order history is read-only here. Keep it off the unstable primary;
-    // this replica set has two secondaries available for customer/admin lists.
-    .read("secondary")
+    .limit(limit + 1)
+    .read("primary")
     .maxTimeMS(3_000)
     .lean();
 
@@ -247,8 +250,6 @@ export async function POST(req: Request) {
         {
           $set: {
             name: customerName,
-            phone: customerPhone,
-            email: customerEmail,
             lastLoginAt: new Date(),
           },
           $addToSet: { addresses: shippingAddress },
@@ -275,18 +276,20 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const query = searchParams.get("query");
+    const query = escapeRegex((searchParams.get("query") || "").slice(0, 100));
     const customerId = searchParams.get("customerId");
     const email = searchParams.get("email");
     const phone = searchParams.get("phone");
-    const page = Math.max(1, Number(searchParams.get("page") || 1));
-    const limit = Math.min(500, Math.max(1, Number(searchParams.get("limit") || 200)));
-
-    await connectToDatabase();
+    const { page, limit } = pagination(searchParams, 50, 200);
 
     // 1. Check server-side cookies for customer or admin session
     const customerSession = await getSessionFromCookie(CUSTOMER_SESSION_COOKIE);
     const adminSession = await getSessionFromCookie(ADMIN_SESSION_COOKIE);
+
+    if (customerSession?.role !== "customer" && adminSession?.role !== "admin") {
+      return NextResponse.json({ success: false, message: "Please sign in to view your orders." }, { status: 401 });
+    }
+    await connectToDatabase();
 
     // If an authenticated admin is making this request, allow full access or admin query
     if (adminSession?.role === "admin") {
@@ -304,12 +307,12 @@ export async function GET(req: Request) {
       } else if (customerId || email || phone) {
         const orConditions: any[] = [];
         if (customerId) orConditions.push({ customerId });
-        if (email) orConditions.push({ userEmail: { $regex: `^${email}$`, $options: "i" } }, { "shippingAddress.email": { $regex: `^${email}$`, $options: "i" } });
+        if (email) orConditions.push({ userEmail: { $regex: `^${escapeRegex(email)}$`, $options: "i" } }, { "shippingAddress.email": { $regex: `^${escapeRegex(email)}$`, $options: "i" } });
         if (phone) orConditions.push({ userPhone: phone }, { "shippingAddress.phone": phone });
         filter = { $or: orConditions };
       }
       const orders = await findRecentOrders(filter, page, limit);
-      return NextResponse.json({ success: true, count: orders.length, orders: orders.map(toClientOrder) });
+      return NextResponse.json({ success: true, count: Math.min(orders.length, limit), page, limit, hasMore: orders.length > limit, orders: orders.slice(0, limit).map(toClientOrder) });
     }
 
     // Customer history comes only from the signed session. Never trust browser-
@@ -329,13 +332,12 @@ export async function GET(req: Request) {
       }
 
       const orders = await findRecentOrders(filter, page, limit);
-      return NextResponse.json({ success: true, count: orders.length, orders: orders.map(toClientOrder) });
+      return NextResponse.json({ success: true, count: Math.min(orders.length, limit), page, limit, hasMore: orders.length > limit, orders: orders.slice(0, limit).map(toClientOrder) });
     }
 
     // Never expose private order data to unauthenticated visitors.
     return NextResponse.json({ success: false, message: "Please sign in to view your orders.", count: 0, orders: [] }, { status: 401 });
   } catch (error) {
-    console.warn("Orders list unavailable:", error instanceof Error ? error.name : "unknown error");
-    return NextResponse.json({ success: false, message: "Orders are temporarily unavailable. Please retry in a moment.", count: 0, orders: [] }, { status: 503 });
+    return databaseErrorResponse(error, "orders.list");
   }
 }

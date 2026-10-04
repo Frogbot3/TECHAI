@@ -21,12 +21,14 @@ export default function ProductCard({
   onQuickView,
   onToggleWishlist,
 }: ProductCardProps) {
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [useOriginalImage, setUseOriginalImage] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
 
   useEffect(() => {
     setImgError(false);
+    setImageLoaded(false);
     setUseOriginalImage(false);
   }, [product.id, product.normalizedImage, product.image]);
 
@@ -97,11 +99,13 @@ export default function ProductCard({
           <img
             src={useOriginalImage ? (product.originalImage || product.image) : (product.normalizedImage || product.image)}
             alt={product.title}
+            aria-busy={!imageLoaded}
+            onLoad={() => setImageLoaded(true)}
             onError={() => {
               if (product.normalizedImage && !useOriginalImage) setUseOriginalImage(true);
               else setImgError(true);
             }}
-            className="h-full w-full object-contain object-center rounded-xl transition-transform duration-300 group-hover:scale-105"
+            className={`h-full w-full object-contain object-center rounded-xl transition-transform duration-300 group-hover:scale-105 ${imageLoaded ? "" : "animate-pulse bg-slate-200/30"}`}
             loading="lazy"
           />
         ) : (

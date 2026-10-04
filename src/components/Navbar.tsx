@@ -121,9 +121,14 @@ export default function Navbar({
   const [currencyDropdown, setCurrencyDropdown] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState(CURRENCIES[0]); // Default INR
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
-  const [deliveryLocation, setDeliveryLocation] = useState("Mumbai 400001");
+  const [deliveryLocation, setDeliveryLocation] = useState("Select location");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
+
+  const savedAddress = user?.addresses?.[user.addresses.length - 1];
+  useEffect(() => {
+    setDeliveryLocation([savedAddress?.city, savedAddress?.pincode].filter(Boolean).join(" ") || "Select location");
+  }, [user?.id, savedAddress?.city, savedAddress?.pincode]);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
 

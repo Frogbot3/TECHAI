@@ -74,10 +74,10 @@ export function toClientHeroCampaign(value: any, product?: Product): HeroCampaig
     productId: campaign.productId || product?.id || "",
     product,
     titleOverride: campaign.titleOverride || "",
-    subtitle: campaign.subtitle || product?.description || "",
-    price: Number(campaign.price ?? product?.price ?? 0),
-    originalPrice: Number(campaign.originalPrice ?? product?.originalPrice ?? campaign.price ?? 0),
-    discountPercent: Number(campaign.discountPercent ?? 0),
+    subtitle: product?.description || "",
+    price: Number(product?.price ?? 0),
+    originalPrice: Number(product?.originalPrice ?? product?.price ?? 0),
+    discountPercent: product && product.originalPrice > product.price ? Math.round((1 - product.price / product.originalPrice) * 100) : 0,
     offerText: campaign.offerText || "",
     ctaText: campaign.ctaText || "Shop Now",
     imageOverride: campaign.imageOverride || "",
@@ -132,7 +132,10 @@ export function toClientOrder(value: any): Order {
     id: order.orderId || order.id || order._id?.toString() || `TECHAI-ORD-${Date.now()}`,
     checkoutId: order.checkoutId || undefined,
     customerId: order.customerId || undefined,
-    items: Array.isArray(order.items) ? order.items.map(normalizeCartItem) : [],
+    items: Array.isArray(order.items) ? order.items.map((item: any, index: number) => normalizeCartItem({
+      ...item,
+      image: item.image ?? `/api/orders/${encodeURIComponent(order.orderId || order.id)}/image?item=${index}`,
+    })) : [],
     shippingAddress: {
       fullName: order.shippingAddress?.fullName || order.userName || "Customer",
       phone: order.shippingAddress?.phone || order.userPhone || "",
@@ -220,7 +223,7 @@ export function toClientRefund(value: any): Refund {
 
 export function toClientUser(value: any): User {
   const user = toPlain(value);
-  const phone = user.phone?.startsWith("google:") ? "" : user.phone || "";
+  const phone = user.verifiedPhone || (user.phone?.startsWith("google:") ? "" : user.phone || "");
   return {
     id: user._id?.toString() || user.id || "",
     name: user.name || (user.email ? user.email.split("@")[0] : "Customer"),

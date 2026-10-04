@@ -12,6 +12,7 @@
  * - The resulting session is a standard JWT stored in an HTTP-only cookie — same system as before.
  */
 
+import { escapeRegex } from "@/lib/query";
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { CUSTOMER_SESSION_COOKIE, setSessionCookie, signSession } from "@/lib/auth";
@@ -58,14 +59,15 @@ async function verifyFirebaseToken(idToken: string): Promise<FirebaseTokenPayloa
   if (parts.length !== 3) throw new Error("Invalid token format");
 
   const header = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8"));
+  if (header.alg !== "RS256") throw new Error("Invalid token algorithm");
   const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as FirebaseTokenPayload;
 
   // Validate basic claims
   const now = Math.floor(Date.now() / 1000);
-  if (payload.exp < now) throw new Error("Token expired");
-  if (payload.iat > now + 5) throw new Error("Token used before issued");
+  if (!Number.isFinite(payload.exp) || payload.exp <= now) throw new Error("Token expired");
+  if (!Number.isFinite(payload.iat) || payload.iat > now + 5) throw new Error("Token used before issued");
   if (payload.aud !== projectId) throw new Error(`Token audience mismatch: expected ${projectId}`);
-  if (!payload.iss?.startsWith("https://securetoken.google.com/")) throw new Error("Invalid token issuer");
+  if (payload.iss !== `https://securetoken.google.com/${projectId}`) throw new Error("Invalid token issuer");
   if (!payload.sub) throw new Error("Missing subject");
 
   // Fetch Google's public X.509 certificates
@@ -136,7 +138,7 @@ export async function POST(req: Request) {
 
     const firebaseUid = payload.uid || payload.sub;
     const signInProvider = payload.firebase?.sign_in_provider || "unknown";
-    const firebaseEmail = payload.email || "";
+    const firebaseEmail = (payload.email || "").trim().toLowerCase();
     const emailVerified = payload.email_verified || false;
     const firebasePhone = payload.phone_number || "";
     const firebaseName = payload.name || "";
@@ -147,14 +149,19 @@ export async function POST(req: Request) {
     // ── Build lookup: prefer firebaseUid, then fall back to verified email/phone ──
     const orConditions: Record<string, any>[] = [{ firebaseUid }];
     if (emailVerified && firebaseEmail) {
-      orConditions.push({ email: { $regex: `^${firebaseEmail}$`, $options: "i" } });
+      orConditions.push({ email: { $regex: `^${escapeRegex(firebaseEmail)}$`, $options: "i" } });
     }
     if (firebasePhone) {
+      orConditions.push({ verifiedPhone: firebasePhone.replace(/^\+91/, "") });
       orConditions.push({ phone: firebasePhone.replace(/^\+91/, "") });
       orConditions.push({ phone: firebasePhone });
     }
 
-    const existingUser = await User.findOne({ $or: orConditions });
+    const matches = await User.find({ $or: orConditions }).limit(3);
+    // Do not choose an arbitrary account when verified identifiers disagree.
+    const knownIdentity = await User.findOne({ firebaseUid });
+    if (!knownIdentity && matches.length > 1) return NextResponse.json({ success: false, message: "These sign-in methods belong to separate accounts. Contact support to verify and link them." }, { status: 409 });
+    const existingUser = knownIdentity || matches[0];
 
     // Determine provider mapping
     let providerField: "google" | "phone" | "email" = "email";
@@ -171,6 +178,7 @@ export async function POST(req: Request) {
       };
       if (firebaseName && !existingUser.name) updateSet.name = firebaseName;
       if (firebasePicture && !existingUser.avatar) updateSet.avatar = firebasePicture;
+      if (firebasePhone) updateSet.verifiedPhone = firebasePhone.replace(/^\+91/, "");
       if (emailVerified && firebaseEmail && !existingUser.email) updateSet.email = firebaseEmail;
       if (firebasePhone && !existingUser.phone) {
         updateSet.phone = firebasePhone.replace(/^\+91/, "");
@@ -182,6 +190,7 @@ export async function POST(req: Request) {
       const phone = firebasePhone ? firebasePhone.replace(/^\+91/, "") : "";
       dbUser = await User.create({
         firebaseUid,
+        ...(firebasePhone ? { verifiedPhone: phone } : {}),
         name: firebaseName || (firebaseEmail ? firebaseEmail.split("@")[0] : "Tech AI Customer"),
         email: emailVerified ? firebaseEmail : "",
         phone: signInProvider === "phone" ? phone : `google:${firebaseUid}`,
@@ -213,6 +222,7 @@ export async function POST(req: Request) {
     setSessionCookie(response, CUSTOMER_SESSION_COOKIE, sessionToken);
     return response;
   } catch (error) {
+    if ((error as { code?: number }).code === 11000) return NextResponse.json({ success: false, message: "Another sign-in linked this identity. Please sign in again." }, { status: 409 });
     console.error("firebase-verify endpoint error:", error);
     return NextResponse.json(
       { success: false, message: "Server error during authentication. Please try again." },

@@ -13,17 +13,21 @@ export interface AuthSession {
   role: "customer" | "admin";
 }
 
-const getJwtSecret = () => process.env.JWT_SECRET || "dev-only-techai-secret-change-me";
+export const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) throw new Error("JWT_SECRET must contain at least 32 characters.");
+  return secret;
+};
 
 export function signSession(payload: AuthSession) {
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: "30d" });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: payload.role === "admin" ? "8h" : "30d", algorithm: "HS256" });
 }
 
 export function verifySession(token?: string): AuthSession | null {
   if (!token) return null;
   try {
-    const decoded = jwt.verify(token, getJwtSecret()) as AuthSession;
-    if (!decoded?.id || !decoded?.role) return null;
+    const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ["HS256"] }) as AuthSession;
+    if (typeof decoded?.id !== "string" || !["admin", "customer"].includes(decoded?.role)) return null;
     return decoded;
   } catch {
     return null;
@@ -32,7 +36,8 @@ export function verifySession(token?: string): AuthSession | null {
 
 export async function getSessionFromCookie(cookieName = CUSTOMER_SESSION_COOKIE) {
   const cookieStore = await cookies();
-  return verifySession(cookieStore.get(cookieName)?.value);
+  const session = verifySession(cookieStore.get(cookieName)?.value);
+  return session?.role === (cookieName === ADMIN_SESSION_COOKIE ? "admin" : "customer") ? session : null;
 }
 
 export function setSessionCookie(response: NextResponse, cookieName: string, token: string) {
@@ -41,7 +46,7 @@ export function setSessionCookie(response: NextResponse, cookieName: string, tok
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: cookieName === ADMIN_SESSION_COOKIE ? 60 * 60 * 8 : 60 * 60 * 24 * 30,
   });
 }
 

@@ -372,6 +372,7 @@ export default function CheckoutModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             orderId: order.id,
+            paymentId: response.error?.metadata?.payment_id,
             reason: response.error?.description || response.error?.reason || "Razorpay payment failed",
           }),
         }).catch(() => null);

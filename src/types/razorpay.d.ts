@@ -7,6 +7,7 @@ declare global {
 
   interface RazorpayFailureResponse {
     error?: {
+      metadata?: { payment_id?: string; order_id?: string };
       code?: string;
       description?: string;
       reason?: string;

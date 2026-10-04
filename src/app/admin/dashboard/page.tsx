@@ -1,5 +1,6 @@
 "use client";
 
+import { checkProductImages } from "@/lib/product-images";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -136,6 +137,8 @@ export default function AdminDashboardPage() {
 
   const [authChecking, setAuthChecking] = useState(true);
   const [isNormalizingImage, setIsNormalizingImage] = useState(false);
+  const [imagesReviewed, setImagesReviewed] = useState(false);
+  useEffect(() => { setImagesReviewed(false); }, [productForm.title, productForm.images, productForm.normalizedImage]);
   const [normalizationMessage, setNormalizationMessage] = useState("");
   const [normalizingProductId, setNormalizingProductId] = useState<string | null>(null);
   const [isNormalizingAll, setIsNormalizingAll] = useState(false);
@@ -498,6 +501,9 @@ export default function AdminDashboardPage() {
   // Submit Add or Edit Product Form
   const handleProductFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!imagesReviewed) { alert("Check that every image shows the correct brand and model, then confirm the image review."); return; }
+    try { await checkProductImages([...productForm.images, productForm.image, productForm.originalImage, productForm.normalizedImage]); }
+    catch (error) { alert((error as Error).message); return; }
     const discount = productForm.originalPrice > productForm.price
       ? Math.round(((productForm.originalPrice - productForm.price) / productForm.originalPrice) * 100)
       : 0;
@@ -1706,6 +1712,8 @@ export default function AdminDashboardPage() {
                     />
                   </div>
                 </div>
+
+                <label className="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" checked={imagesReviewed} onChange={e => setImagesReviewed(e.target.checked)} required />I checked that every image shows this product’s brand and model.</label>
 
                 {/* Thumbnail Strip Preview of up to 7 images */}
                 <div className="grid grid-cols-4 sm:grid-cols-7 gap-2.5 pt-1">

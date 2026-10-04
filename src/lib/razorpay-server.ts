@@ -11,6 +11,7 @@ export interface RazorpayOrderResponse {
 }
 
 export interface RazorpayPaymentResponse {
+  method?: string;
   id: string;
   amount: number;
   amount_refunded?: number;
@@ -96,6 +97,7 @@ export async function createRazorpayOrder(input: {
       payment_capture: 1,
     }),
     cache: "no-store",
+    signal: AbortSignal.timeout(15000),
   });
 
   const data = (await response.json().catch(() => null)) as RazorpayOrderResponse & { error?: { description?: string; code?: string } } | null;
@@ -117,6 +119,7 @@ async function razorpayRequest<T>(path: string, init: RequestInit = {}): Promise
       ...(init.headers || {}),
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(15000),
   });
   const data = await response.json().catch(() => null) as T & { error?: { description?: string; code?: string } } | null;
   if (!response.ok || !data) {

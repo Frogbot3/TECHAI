@@ -1,5 +1,6 @@
 "use client";
 
+import ProductImage from "./ProductImage";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, ChevronLeft, ChevronRight, ShieldCheck, Sparkles, Tag } from "lucide-react";
@@ -264,7 +265,7 @@ export default function HeroCarousel({ campaigns = [], products = [], onExploreC
 
   const allSlides = useMemo<HeroSlideItem[]>(() => {
     const campaignSlides: HeroSlideItem[] = campaigns.flatMap((campaign) => {
-        const product = campaign.product || products.find((item) => item.id === campaign.productId);
+        const product = products.find((item) => item.id === campaign.productId) || campaign.product;
         if (!product) return [];
         const theme = getHeroTheme(product.category, campaign.titleOverride || product.title);
         return [{
@@ -272,10 +273,10 @@ export default function HeroCarousel({ campaigns = [], products = [], onExploreC
           campaignId: campaign.id,
           badge: campaign.badge,
           title: campaign.titleOverride || product.title,
-          subtitle: campaign.subtitle || product.description,
+          subtitle: product.description,
           priceLabel: "Special Offer Price",
-          price: `INR ${campaign.price.toLocaleString("en-IN")}`,
-          originalPrice: campaign.originalPrice > campaign.price ? `INR ${campaign.originalPrice.toLocaleString("en-IN")}` : undefined,
+          price: `INR ${product.price.toLocaleString("en-IN")}`,
+          originalPrice: product.originalPrice > product.price ? `INR ${product.originalPrice.toLocaleString("en-IN")}` : undefined,
           offer: campaign.offerText,
           category: product.category,
           cta: campaign.ctaText,
@@ -300,7 +301,7 @@ export default function HeroCarousel({ campaigns = [], products = [], onExploreC
         id: `hero-${product.id}`,
         badge: product.heroBadge || (product.discountPercent > 0 ? `EXCLUSIVE DROP - ${product.discountPercent}% OFF` : "FEATURED SPOTLIGHT"),
         title: product.heroBannerHeadline || product.title,
-        subtitle: product.heroBannerSubtitle || product.description || "100% genuine with official brand warranty and express delivery.",
+        subtitle: product.description || "100% genuine with official brand warranty and express delivery.",
         priceLabel: "Special Offer Price",
         price: `INR ${product.price.toLocaleString("en-IN")}`,
         originalPrice: product.originalPrice > product.price ? `INR ${product.originalPrice.toLocaleString("en-IN")}` : undefined,
@@ -493,7 +494,7 @@ export default function HeroCarousel({ campaigns = [], products = [], onExploreC
 
               <div className="sm:col-span-5 flex items-center justify-center min-w-0">
                 <div className={`relative w-full aspect-square max-w-[130px] sm:max-w-none sm:w-44 sm:h-44 lg:w-48 lg:h-48 rounded-xl sm:rounded-2xl border shadow-md sm:shadow-xl p-1.5 sm:p-3 flex items-center justify-center overflow-hidden group ${slide.theme.media}`}>
-                  <img src={slide.image} alt={slide.title} className="w-full h-full object-contain rounded-lg sm:rounded-xl drop-shadow-sm transition-transform duration-300 group-hover:scale-105" loading={activeIndex === 0 ? "eager" : "lazy"} decoding="async" onError={(event) => { if (!event.currentTarget.dataset.fallbackApplied) { event.currentTarget.dataset.fallbackApplied = "true"; event.currentTarget.src = slide.productRef?.images?.[0] || slide.productRef?.image || "/generated-products/ai-orbit-camera.png"; } }} />
+                  <ProductImage src={slide.image} fallbacks={slide.productRef?.images}  alt={slide.title} className="w-full h-full object-contain rounded-lg sm:rounded-xl drop-shadow-sm transition-transform duration-300 group-hover:scale-105" loading={activeIndex === 0 ? "eager" : "lazy"} decoding="async" />
                   {slide.verified && <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-emerald-950/90 text-emerald-300 text-[8px] sm:text-[10px] font-bold px-1 sm:px-1.5 py-0.5 rounded border border-emerald-700/70 flex items-center gap-0.5"><ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3" /><span>Verified</span></div>}
                 </div>
               </div>
@@ -515,7 +516,7 @@ export default function HeroCarousel({ campaigns = [], products = [], onExploreC
               : { card: "bg-[#07182a] border-[#17314a] hover:bg-[#0b2238] hover:border-[#234665]", label: "text-white bg-white/10 border-white/20", title: "text-white", detail: "text-white/70", action: "text-white", image: "bg-white/10 border-white/20" };
             return <button key={deal.id} type="button" onClick={() => deal.productRef && onSelectProduct ? onSelectProduct(deal.productRef) : onExploreCategory(deal.category)} className={`min-h-[150px] lg:min-h-0 flex items-center justify-between gap-2 p-3 sm:p-4 rounded-2xl border text-left shadow-md shadow-slate-950/5 transition-all cursor-pointer group overflow-hidden ${accentClasses.card}`}>
               <div className="space-y-1 min-w-0"><span className={`inline-flex max-w-full text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded border ${accentClasses.label}`}><span className="truncate">{deal.label}</span></span><h2 className={`text-[11px] sm:text-sm font-extrabold leading-tight line-clamp-2 ${accentClasses.title}`}>{deal.title}</h2><p className={`text-[10px] sm:text-xs font-semibold line-clamp-1 ${accentClasses.detail}`}>{deal.detail}</p><span className={`inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold ${accentClasses.action} pt-0.5`}>{deal.action}<ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" /></span></div>
-              <div className={`w-14 h-14 sm:w-20 sm:h-20 rounded-xl border p-1.5 sm:p-2 flex items-center justify-center shrink-0 transition-colors overflow-hidden ${accentClasses.image}`}><img src={deal.image} alt={deal.title} className="max-h-full max-w-full object-contain rounded-lg" loading="lazy" /></div>
+              <div className={`w-14 h-14 sm:w-20 sm:h-20 rounded-xl border p-1.5 sm:p-2 flex items-center justify-center shrink-0 transition-colors overflow-hidden ${accentClasses.image}`}><ProductImage src={deal.image} alt={deal.title} className="max-h-full max-w-full object-contain rounded-lg" loading="lazy" /></div>
             </button>;
           })}
         </div>
