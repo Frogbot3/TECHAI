@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import ProductImage from "./ProductImage";
 import { Product } from "@/lib/types";
-import { Heart, ShoppingCart, Star, Check, Package, Truck, Zap } from "lucide-react";
+import { Heart, ShoppingCart, Star, Check, Truck, Zap } from "lucide-react";
 
 interface ProductCardProps {
   product: Product;
@@ -18,19 +19,12 @@ export default function ProductCard({
   product,
   isInWishlist,
   onAddToCart,
-  onQuickView,
   onToggleWishlist,
+  priority = false,
 }: ProductCardProps) {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imgError, setImgError] = useState(false);
-  const [useOriginalImage, setUseOriginalImage] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
-
-  useEffect(() => {
-    setImgError(false);
-    setImageLoaded(false);
-    setUseOriginalImage(false);
-  }, [product.id, product.normalizedImage, product.image]);
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(addedTimer.current), []);
 
   const isOutOfStock = product.stock <= 0;
   const isLowStock = !isOutOfStock && product.stock <= 5;
@@ -40,7 +34,8 @@ export default function ProductCard({
     if (isOutOfStock) return;
     onAddToCart(product);
     setIsAdded(true);
-    setTimeout(() => setIsAdded(false), 1400);
+    clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setIsAdded(false), 1400);
   };
 
   const handleWishlistClick = (e: React.MouseEvent) => {
@@ -50,6 +45,7 @@ export default function ProductCard({
 
   return (
     <article
+      data-product-id={product.id}
       className="group relative flex flex-col justify-between bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 overflow-hidden p-3 sm:p-3.5 h-full"
     >
       {/* Top Floating Row: Badges + Wishlist Button */}
@@ -72,8 +68,9 @@ export default function ProductCard({
         <button
           type="button"
           onClick={handleWishlistClick}
-          className="pointer-events-auto w-7 h-7 rounded-full bg-white/95 backdrop-blur-xs border border-slate-100 flex items-center justify-center text-slate-400 shadow-xs hover:text-rose-500 hover:bg-white transition-all cursor-pointer"
+          className="pointer-events-auto w-11 h-11 rounded-full bg-white/95 backdrop-blur-xs border border-slate-100 flex items-center justify-center text-slate-500 shadow-xs hover:text-rose-500 hover:bg-white transition-all cursor-pointer"
           title={isInWishlist ? "Remove from Wishlist" : "Save to Wishlist"}
+          aria-pressed={isInWishlist}
           aria-label={isInWishlist ? "Remove from Wishlist" : "Save to Wishlist"}
         >
           <Heart
@@ -85,47 +82,27 @@ export default function ProductCard({
       </div>
 
       {/* 1. Rounded Product Image Container (12-16px radius, neutral background, centered) */}
-      <Link
+      <Link prefetch={false}
         href={`/product/${encodeURIComponent(product.id)}`}
-        onClick={(e) => {
-          if (onQuickView && window.innerWidth >= 1024) {
-            // allow navigation or quickview
-          }
-        }}
         aria-label={`View ${product.title}`}
         className="relative aspect-square w-full min-h-0 bg-slate-50 rounded-xl border border-slate-100/90 p-2.5 sm:p-3 flex items-center justify-center overflow-hidden mb-2.5 group-hover:bg-slate-100/60 transition-colors cursor-pointer"
       >
-        {!imgError && (product.normalizedImage || product.image) ? (
-          <img
-            src={useOriginalImage ? (product.originalImage || product.image) : (product.normalizedImage || product.image)}
-            alt={product.title}
-            aria-busy={!imageLoaded}
-            onLoad={() => setImageLoaded(true)}
-            onError={() => {
-              if (product.normalizedImage && !useOriginalImage) setUseOriginalImage(true);
-              else setImgError(true);
-            }}
-            className={`h-full w-full object-contain object-center rounded-xl transition-transform duration-300 group-hover:scale-105 ${imageLoaded ? "" : "animate-pulse bg-slate-200/30"}`}
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center text-slate-400 space-y-1">
-            <Package className="w-8 h-8 text-slate-300" />
-            <span className="text-[10px] font-bold text-slate-400">{product.brand}</span>
-          </div>
-        )}
+        <ProductImage src={product.normalizedImage || product.image}
+          fallbacks={[product.originalImage || "", product.image, ...(product.images || [])]}
+          alt={product.title} priority={priority}
+          className="h-full w-full object-contain object-center rounded-xl transition-transform duration-300 group-hover:scale-105" />
       </Link>
 
       {/* 2. Product Meta & Details */}
       <div className="flex-1 flex flex-col justify-between space-y-2">
         <div className="space-y-1">
           {/* Brand */}
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 truncate">
             {product.brand}
           </div>
 
           {/* Title */}
-          <Link
+          <Link prefetch={false}
             href={`/product/${encodeURIComponent(product.id)}`}
             className="block text-xs sm:text-sm font-bold text-slate-900 line-clamp-2 hover:text-cyan-700 transition-colors leading-snug min-h-[34px] sm:min-h-[38px] cursor-pointer"
           >
@@ -140,7 +117,7 @@ export default function ProductCard({
                 {product.rating.toFixed(1)}
               </span>
             </div>
-            <span className="text-slate-400 text-[11px] font-medium">
+            <span className="text-slate-500 text-[11px] font-medium">
               ({product.reviewCount.toLocaleString()})
             </span>
           </div>
@@ -155,7 +132,7 @@ export default function ProductCard({
                 ₹{product.price.toLocaleString("en-IN")}
               </span>
               {product.originalPrice > product.price && (
-                <span className="text-[11px] text-slate-400 line-through font-medium">
+                <span className="text-[11px] text-slate-500 line-through font-medium">
                   ₹{product.originalPrice.toLocaleString("en-IN")}
                 </span>
               )}
@@ -170,12 +147,10 @@ export default function ProductCard({
                   <Zap className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
                   <span>Only {product.stock} left</span>
                 </span>
-              ) : (
-                <p className="text-[10px] font-bold text-emerald-700 flex items-center gap-1">
-                  <Truck className="w-3 h-3 text-emerald-600 flex-shrink-0" />
-                  <span>Free Express Delivery</span>
-                </p>
-              )}
+              ) : null}
+              {!isOutOfStock && <p className="text-[10px] font-bold text-emerald-700 flex items-center gap-1">
+                <Truck className="w-3 h-3 shrink-0" /><span>{product.price > 499 ? "Free standard delivery" : "Free delivery over ₹499"}</span>
+              </p>}
             </div>
           </div>
 
@@ -184,9 +159,9 @@ export default function ProductCard({
             type="button"
             disabled={isOutOfStock}
             onClick={handleAddClick}
-            className={`w-full h-8 sm:h-8.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer ${
+            className={`w-full min-h-11 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer ${
               isOutOfStock
-                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                ? "bg-slate-100 text-slate-500 cursor-not-allowed"
                 : isAdded
                 ? "bg-emerald-600 text-white"
                 : "bg-slate-900 hover:bg-slate-800 text-white active:scale-98"
@@ -208,4 +183,11 @@ export default function ProductCard({
       </div>
     </article>
   );
+}
+
+export function ProductCardSkeleton() {
+  return <div aria-label="Loading product" className="rounded-2xl bg-white border border-slate-200 p-3 motion-safe:animate-pulse">
+    <div className="aspect-square bg-slate-100 rounded-xl mb-3" /><div className="h-3 w-1/3 bg-slate-200 rounded mb-3" />
+    <div className="h-8 bg-slate-100 rounded mb-3" /><div className="h-4 w-2/3 bg-slate-200 rounded mb-3" /><div className="h-11 bg-slate-200 rounded-xl" />
+  </div>;
 }

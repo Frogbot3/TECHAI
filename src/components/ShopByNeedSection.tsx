@@ -76,7 +76,7 @@ const NEED_ITEMS = [
 
 export default function ShopByNeedSection({ onSelectNeed }: ShopByNeedSectionProps) {
   return (
-    <section className="px-3 sm:px-6 lg:px-8 py-4">
+    <section id="shop-by-need" className="scroll-mt-52 px-3 sm:px-6 lg:px-8 py-4">
       <div className="flex items-center justify-between mb-3.5 pb-2.5 border-b border-slate-200/80">
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">

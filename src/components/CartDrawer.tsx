@@ -1,4 +1,5 @@
 "use client";
+import ProductImage from "./ProductImage";
 
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -80,7 +81,7 @@ export default function CartDrawer({
             ) : (
               cart.map((item) => (
                 <div key={item.product.id} className="grid grid-cols-[72px_1fr_auto] gap-3 rounded-lg border border-slate-200 bg-white p-3">
-                  <img
+                  <ProductImage
                     src={item.product.normalizedImage || item.product.image}
                     alt={item.product.title}
                     onError={(e) => {

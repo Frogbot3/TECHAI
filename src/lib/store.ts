@@ -39,9 +39,9 @@ const normalizeWishlist = (value: unknown): string[] => {
   return [...new Set(value.filter((item): item is string => typeof item === "string"))];
 };
 
-export function useTechAiStore() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [heroCampaigns, setHeroCampaigns] = useState<HeroCampaign[]>([]);
+export function useTechAiStore(initial?: { products: Product[]; campaigns: HeroCampaign[]; refreshOnMount?: boolean }) {
+  const [products, setProducts] = useState<Product[]>(initial?.products || []);
+  const [heroCampaigns, setHeroCampaigns] = useState<HeroCampaign[]>(initial?.campaigns || []);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [ordersPage, setOrdersPage] = useState(1);
   const [hasMoreOrders, setHasMoreOrders] = useState(false);
@@ -50,7 +50,7 @@ export function useTechAiStore() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [user, setUser] = useState<User | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(!!initial);
 
   const updateProducts = (newProducts: Product[]) => {
     setProducts(newProducts);
@@ -69,7 +69,7 @@ export function useTechAiStore() {
   };
 
   const refreshProducts = async () => {
-    const response = await fetch("/api/products");
+    const response = await fetch("/api/products?view=storefront");
     const data = await response.json();
     if (data.success && data.products) {
       const normalized = data.products.map(toClientProduct);
@@ -81,7 +81,7 @@ export function useTechAiStore() {
 
   const refreshHeroCampaigns = async () => {
     try {
-      const response = await fetch("/api/hero-campaigns", { cache: "no-store" });
+      const response = await fetch("/api/hero-campaigns?view=storefront", { cache: "no-store" });
       const data = await response.json();
       if (data.success && Array.isArray(data.campaigns)) {
         setHeroCampaigns(data.campaigns);
@@ -140,9 +140,9 @@ export function useTechAiStore() {
   };
 
   useEffect(() => {
-    const storedProducts = getStorage<Product[]>(PRODUCTS_KEY, INITIAL_PRODUCTS).map(toClientProduct);
+    const storedProducts = initial?.products || getStorage<Product[]>(PRODUCTS_KEY, INITIAL_PRODUCTS).map(toClientProduct);
     const storedIds = new Set(storedProducts.map((p) => p.id));
-    const missingInitial = INITIAL_PRODUCTS.filter((p) => !storedIds.has(p.id)).map(toClientProduct);
+    const missingInitial = initial ? [] : INITIAL_PRODUCTS.filter((p) => !storedIds.has(p.id)).map(toClientProduct);
     const loadedProducts = [...storedProducts, ...missingInitial];
     if (missingInitial.length > 0) {
       setStorage(PRODUCTS_KEY, loadedProducts);
@@ -157,20 +157,30 @@ export function useTechAiStore() {
     if (typeof window !== "undefined") localStorage.removeItem(LEGACY_ORDERS_KEY);
     const loadedOrders = loadedUser ? rawOrders.filter((order) => order.customerId === loadedUser.id) : [];
 
-    setProducts(loadedProducts);
+    setProducts(initial?.products || loadedProducts);
     setCart(loadedCart);
     setOrders(loadedOrders);
     setWishlist(loadedWishlist);
     setUser(loadedUser);
     setIsLoaded(true);
 
-    refreshProducts().catch(() => {});
-    refreshHeroCampaigns().catch(() => {});
+    // The homepage already has a fresh server snapshot; avoid fetching it twice on startup.
+    if (!initial || initial.refreshOnMount) {
+      refreshProducts().catch(() => {});
+      refreshHeroCampaigns().catch(() => {});
+    }
+    const refreshCatalogue = () => {
+      if (document.visibilityState !== "visible") return;
+      refreshProducts().catch(() => {});
+      refreshHeroCampaigns().catch(() => {});
+    };
+    const catalogueTimer = window.setInterval(refreshCatalogue, 60000);
     if (loadedUser) {
       refreshOrders(loadedUser.id);
       refreshWishlist().catch(() => {});
     }
     refreshSession().catch(() => {});
+    return () => window.clearInterval(catalogueTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

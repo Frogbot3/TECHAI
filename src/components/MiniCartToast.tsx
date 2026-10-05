@@ -1,7 +1,7 @@
 "use client";
+import ProductImage from "./ProductImage";
 
 import React, { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, X, ShoppingBag, ArrowRight } from "lucide-react";
 import { Product } from "@/lib/types";
 
@@ -44,13 +44,8 @@ export default function MiniCartToast({
   if (!product) return null;
 
   return (
-    <AnimatePresence>
-      <motion.div
+      <div
         key={product.id}
-        initial={{ opacity: 0, y: -25, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -20, scale: 0.96 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
         role="status"
         aria-live="polite"
         className="fixed top-3 sm:top-20 inset-x-3 sm:inset-x-auto sm:right-6 z-50 mx-auto w-auto max-w-[calc(100vw-24px)] sm:w-full sm:max-w-sm bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-2xl p-3.5 sm:p-4 text-slate-900"
@@ -81,7 +76,7 @@ export default function MiniCartToast({
 
         {/* Product Preview - Fully responsive on phone */}
         <div className="flex items-center space-x-3 my-2 bg-slate-50/80 p-2 rounded-xl border border-slate-100">
-          <img
+          <ProductImage
             src={product.normalizedImage || product.image}
             alt={product.title}
             className="w-12 h-12 object-contain rounded-lg bg-white p-1 flex-shrink-0 border border-slate-200/60"
@@ -126,7 +121,6 @@ export default function MiniCartToast({
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
-      </motion.div>
-    </AnimatePresence>
+      </div>
   );
 }

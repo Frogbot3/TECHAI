@@ -22,6 +22,7 @@ import { Product } from "@/lib/types";
 import Navbar from "@/components/Navbar";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import Footer from "@/components/Footer";
+import ProductImage from "@/components/ProductImage";
 import ProductCard from "@/components/ProductCard";
 import CartDrawer from "@/components/CartDrawer";
 import AuthModal from "@/components/AuthModal";
@@ -36,11 +37,13 @@ export default function ProductPage() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
   const store = useTechAiStore();
+  const [searchQuery, setSearchQuery] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<ProductTab>("overview");
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [lastAddedProduct, setLastAddedProduct] = useState<Product | null>(null);
 
@@ -75,6 +78,7 @@ export default function ProductPage() {
     if (store.user) {
       setIsCheckoutOpen(true);
     } else {
+      setPendingCheckout(true);
       setIsAuthOpen(true);
     }
   };
@@ -83,6 +87,7 @@ export default function ProductPage() {
     if (store.user) {
       setIsCheckoutOpen(true);
     } else {
+      setPendingCheckout(true);
       setIsAuthOpen(true);
     }
   };
@@ -98,8 +103,9 @@ export default function ProductPage() {
           cartCount={cartCount}
           wishlistCount={store.wishlist.length}
           user={store.user}
-          searchQuery=""
-          setSearchQuery={() => {}}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onSearchSubmit={(query) => { if (query.trim()) router.push(`/search?q=${encodeURIComponent(query)}`); }}
           selectedCategory="All Categories"
           setSelectedCategory={() => router.push("/")}
           products={store.products}
@@ -142,13 +148,13 @@ export default function ProductPage() {
   const currentImage = galleryImages[selectedImageIndex] || product.image;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 text-slate-900 md:pb-8 flex flex-col">
+    <div className="min-h-screen bg-slate-50 pb-40 text-slate-900 md:pb-8 flex flex-col">
       {/* 1. Header */}
       <Navbar
         cartCount={cartCount}
         wishlistCount={store.wishlist.length}
         user={store.user}
-        searchQuery=""
+        searchQuery={searchQuery}
         setSearchQuery={() => {}}
         selectedCategory={product.category}
         setSelectedCategory={() => router.push("/")}
@@ -196,7 +202,7 @@ export default function ProductPage() {
               <button
                 type="button"
                 onClick={() => store.toggleWishlist(product.id)}
-                className="absolute right-3 top-3 w-8 h-8 rounded-full bg-white/95 border border-slate-100 shadow-xs flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                className="absolute right-3 top-3 w-11 h-11 rounded-full bg-white/95 border border-slate-100 shadow-xs flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
                 title={isInWishlist ? "Remove from Wishlist" : "Save to Wishlist"}
                 aria-label="Toggle wishlist"
               >
@@ -207,7 +213,10 @@ export default function ProductPage() {
                 />
               </button>
 
-              <img
+              <ProductImage
+                priority
+                sizes="(max-width: 767px) 90vw, 480px"
+                fallbacks={[product.image, ...(product.images || [])]}
                 src={currentImage}
                 alt={product.title}
                 className="h-full w-full object-contain rounded-xl transition-all duration-300"
@@ -221,6 +230,8 @@ export default function ProductPage() {
                   <button
                     key={idx}
                     type="button"
+                    aria-label={`View product image ${idx + 1}`}
+                    aria-pressed={selectedImageIndex === idx}
                     onClick={() => setSelectedImageIndex(idx)}
                     className={`w-14 h-14 rounded-xl p-1 bg-slate-50 border transition-all flex-shrink-0 cursor-pointer overflow-hidden ${
                       selectedImageIndex === idx
@@ -228,7 +239,7 @@ export default function ProductPage() {
                         : "border-slate-200 hover:border-slate-300 opacity-75 hover:opacity-100"
                     }`}
                   >
-                    <img src={imgUrl} alt="" className="w-full h-full object-contain" />
+                    <ProductImage src={imgUrl} sizes="56px" alt={`${product.title}, view ${idx + 1}`} className="w-full h-full object-contain" />
                   </button>
                 ))}
               </div>
@@ -251,7 +262,7 @@ export default function ProductPage() {
                 {product.rating.toFixed(1)}
               </span>
               <span className="font-semibold text-slate-600">
-                {product.reviewCount.toLocaleString()} verified customer ratings
+                {product.reviewCount.toLocaleString()} customer ratings
               </span>
             </div>
 
@@ -307,7 +318,7 @@ export default function ProductPage() {
                   aria-label="Decrease quantity"
                   disabled={quantity <= 1}
                   onClick={() => setQuantity((current) => Math.max(1, current - 1))}
-                  className="p-2 text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                  className="min-w-11 min-h-11 p-2 text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
                 >
                   <Minus className="h-4 w-4" />
                 </button>
@@ -317,7 +328,7 @@ export default function ProductPage() {
                   aria-label="Increase quantity"
                   disabled={quantity >= product.stock}
                   onClick={() => setQuantity((current) => Math.min(product.stock, current + 1))}
-                  className="p-2 text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                  className="min-w-11 min-h-11 p-2 text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -355,7 +366,7 @@ export default function ProductPage() {
             <div className="grid gap-2 border-t border-slate-100 pt-4 text-[11px] font-semibold text-slate-600 sm:grid-cols-3">
               <span className="flex items-center gap-1.5">
                 <ShieldCheck className="h-4 w-4 text-cyan-600" />
-                100% Genuine Brand Sourced
+                Detailed product specifications
               </span>
               <span className="flex items-center gap-1.5">
                 <Check className="h-4 w-4 text-emerald-600" />
@@ -506,11 +517,11 @@ export default function ProductPage() {
       {/* Auth Modal */}
       <AuthModal
         isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
+        onClose={() => { setIsAuthOpen(false); setPendingCheckout(false); }}
         onLoginSuccess={(user) => {
           store.setAuthenticatedUser(user);
           setIsAuthOpen(false);
-          setIsCheckoutOpen(true);
+          if (pendingCheckout) { setIsCheckoutOpen(true); setPendingCheckout(false); }
         }}
       />
 
@@ -529,7 +540,7 @@ export default function ProductPage() {
       />
 
       {/* Mobile Sticky Purchase Bar (Bottom) */}
-      <div className="md:hidden fixed bottom-14 left-0 right-0 z-30 bg-white border-t border-slate-200 p-2.5 flex items-center justify-between gap-3 shadow-lg">
+      <div className="md:hidden fixed bottom-[calc(64px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 bg-white border-t border-slate-200 p-2.5 flex items-center justify-between gap-3 shadow-lg">
         <div className="min-w-0">
           <p className="text-[11px] font-medium text-slate-500 truncate">Total Price</p>
           <p className="text-base font-black text-slate-950">₹{(product.price * quantity).toLocaleString("en-IN")}</p>
@@ -539,16 +550,16 @@ export default function ProductPage() {
             type="button"
             disabled={isOutOfStock}
             onClick={() => addToCart(product, quantity)}
-            className="h-9 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="min-h-11 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             <ShoppingCart className="w-3.5 h-3.5 text-slate-700" />
-            <span>Add</span>
+            <span>Add to Cart</span>
           </button>
           <button
             type="button"
             disabled={isOutOfStock}
             onClick={handleBuyNow}
-            className="h-9 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+            className="min-h-11 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
           >
             <Zap className="w-3.5 h-3.5" />
             <span>Buy Now</span>
@@ -562,7 +573,7 @@ export default function ProductPage() {
         wishlistCount={store.wishlist.length}
         onOpenCart={() => setIsCartOpen(true)}
         onOpenCategories={() => router.push("/")}
-        onOpenSearch={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        onOpenSearch={() => { window.scrollTo({ top: 0, behavior: "smooth" }); document.querySelector<HTMLInputElement>('input[placeholder="Search products, brands..."]')?.focus(); }}
         onOpenAuth={() => setIsAuthOpen(true)}
         onResetHome={() => router.push("/")}
       />

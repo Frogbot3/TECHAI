@@ -1,3 +1,4 @@
+import { storefrontConfig } from "@/lib/storefront-config";
 import { Order } from "./types";
 
 function numberToWordsINR(num: number): string {
@@ -57,7 +58,7 @@ export async function generateOrderInvoice(order: Order): Promise<void> {
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("TECH AI RETAIL INDIA PVT. LTD.", margin, y);
+  doc.text(storefrontConfig.companyName, margin, y);
 
   y += 5;
   doc.setFontSize(8);
@@ -69,7 +70,7 @@ export async function generateOrderInvoice(order: Order): Promise<void> {
   doc.text("GSTIN: 29AABCT1337M1Z6  |  CIN: U72200KA2024PTC189001  |  State Code: 29", margin, y);
 
   y += 4;
-  doc.text("Helpline: 1800-889-TECH (Toll-Free)  |  Email: support@techai.store", margin, y);
+  doc.text([storefrontConfig.helpline, storefrontConfig.email].filter(Boolean).join(" | "), margin, y);
 
   // Right: Invoice Title & Metadata
   const rightX = pageWidth - margin;
@@ -362,7 +363,7 @@ export async function generateOrderInvoice(order: Order): Promise<void> {
   doc.setFont("helvetica", "normal");
   doc.setTextColor(148, 163, 184);
   doc.text("This is a computer-generated tax invoice and requires no physical signature.", margin, footerY);
-  doc.text("24x7 Support: support@techai.store | www.techai.store", margin, footerY + 3.5);
+  doc.text(storefrontConfig.email || storefrontConfig.companyName, margin, footerY + 3.5);
   doc.text(`Page 1 of 1 | Invoice for Order ${order.id}`, pageWidth - margin, footerY, { align: "right" });
 
   // Download PDF

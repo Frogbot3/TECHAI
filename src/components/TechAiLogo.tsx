@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { storefrontConfig } from "@/lib/storefront-config";
 
 interface TechAiLogoProps {
   className?: string;
@@ -15,8 +16,10 @@ export default function TechAiLogo({ className = "", size = "md" }: TechAiLogoPr
     xl: "h-16 text-5xl",
   };
 
+  if (storefrontConfig.companyName !== "TECH AI") return <span className={`font-bold ${sizeClasses[size]} ${className}`}>{storefrontConfig.companyName}</span>;
+
   return (
-    <div className={`inline-flex items-center select-none font-bold tracking-tight ${sizeClasses[size]} ${className}`}>
+    <div role="img" aria-label={storefrontConfig.companyName} className={`inline-flex items-center select-none font-bold tracking-tight ${sizeClasses[size]} ${className}`}>
       <span className="text-[#0D5C75] font-extrabold tracking-wider flex items-center">
         TEC
         <span className="relative inline-block mx-[1px]">

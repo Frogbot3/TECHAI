@@ -83,3 +83,40 @@ html {
   object-position: center;
   transition: transform 0.3s ease;
 }
+
+/* Footer-only styling; the original storefront design is preserved. */
+.retail-footer { margin-top:16px; background:#020617; color:#cbd5e1; }
+.retail-footer-inner { max-width:1280px; margin:auto; padding:42px 32px 12px; display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:32px; }
+.retail-footer-brand p { font-size:13px; line-height:1.9; margin:16px 0; color:#94a3b8; }
+.retail-footer-brand a { display:inline-flex; gap:8px; align-items:center; min-height:44px; font-size:13px; }
+.retail-footer summary { min-height:44px; list-style:none; display:flex; justify-content:space-between; align-items:center; color:#fff; font-size:14px; font-weight:700; }
+.retail-footer summary svg { display:none; }
+.retail-footer nav { display:flex; flex-direction:column; }
+.retail-footer nav a,.retail-footer nav button { min-height:38px; display:flex; align-items:center; font-size:12px; text-align:left; }
+.retail-footer nav a:hover,.retail-footer nav button:hover { color:white; }
+.retail-footer-payments { margin-top:18px; font-size:11px; color:#94a3b8; }
+.retail-footer-payments > div { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.retail-footer-payments span { padding:5px 7px; border:1px solid #334155; border-radius:5px; color:#cbd5e1; }
+.retail-footer-bottom { grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; gap:12px; border-top:1px solid #1e293b; padding:14px 0; font-size:12px; }
+.retail-footer-bottom button { display:flex; align-items:center; gap:8px; min-height:44px; }
+
+.retail-footer :is(button,a,summary):focus-visible { outline:3px solid #22d3ee; outline-offset:3px; }
+@media(max-width:1023px) { .retail-footer-inner { grid-template-columns:1.4fr 1fr; } }
+@media(max-width:767px) {
+  .retail-footer-inner { display:block; padding:28px 20px 16px; }
+  .retail-footer-brand { padding-bottom:16px; }
+  .retail-footer details { border-top:1px solid #1e293b; }
+  .retail-footer summary { min-height:52px; cursor:pointer; }
+  .retail-footer summary svg { display:block; }
+  .retail-footer details[open] summary svg { transform:rotate(180deg); }
+  .retail-footer nav { padding-bottom:12px; }
+  .retail-footer nav a,.retail-footer nav button { min-height:44px; font-size:13px; }
+  .retail-footer-payments { margin:0 0 16px; }
+  .retail-footer-bottom { margin-top:16px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-slide { animation: hero-enter 180ms ease-out; }
+  @keyframes hero-enter { from { transform: translateX(6px); } to { transform: translateX(0); } }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

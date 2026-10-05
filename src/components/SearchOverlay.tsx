@@ -1,4 +1,5 @@
 "use client";
+import ProductImage from "./ProductImage";
 
 import React, { useState, useEffect } from "react";
 import { Search, Clock, TrendingUp, X, ArrowRight, Sparkles } from "lucide-react";
@@ -213,7 +214,7 @@ export default function SearchOverlay({
                   className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors group"
                 >
                   <div className="flex items-center space-x-3 min-w-0">
-                    <img
+                    <ProductImage
                       src={prod.image}
                       alt={prod.title}
                       className="w-10 h-10 object-contain rounded-lg bg-slate-100 p-1 flex-shrink-0"

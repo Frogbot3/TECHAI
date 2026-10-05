@@ -1,4 +1,5 @@
 "use client";
+import ProductImage from "./ProductImage";
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -68,7 +69,7 @@ export default function ProductComparisonModal({
               {itemsToCompare.map((prod) => (
                 <div key={prod.id} className="flex flex-col justify-between space-y-2 text-center p-2 rounded-xl bg-slate-50 border border-slate-200">
                   <div className="w-full aspect-square flex items-center justify-center bg-white rounded-lg p-2">
-                    <img
+                    <ProductImage
                       src={prod.image}
                       alt={prod.title}
                       className="max-h-24 max-w-full object-contain"

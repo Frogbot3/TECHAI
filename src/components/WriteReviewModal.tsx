@@ -1,4 +1,5 @@
 "use client";
+import ProductImage from "./ProductImage";
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -155,7 +156,7 @@ export default function WriteReviewModal({
           <div className="p-6 space-y-5 text-xs">
             {/* Product Card Summary */}
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
-              <img
+              <ProductImage
                 src={product.normalizedImage || product.image}
                 alt={product.title}
                 className="w-14 h-14 object-contain bg-white rounded-xl p-1 border border-slate-200"

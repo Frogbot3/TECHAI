@@ -202,7 +202,7 @@ export default function ProductReviewsSection({
           </p>
           <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-600 font-semibold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>100% Genuine Reviews</span>
+            <span>Customer feedback</span>
           </div>
         </div>
 

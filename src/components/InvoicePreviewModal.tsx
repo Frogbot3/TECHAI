@@ -1,4 +1,5 @@
 "use client";
+import { storefrontConfig } from "@/lib/storefront-config";
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -155,7 +156,7 @@ export default function InvoicePreviewModal({
                 <div className="flex items-center gap-2">
                   <TechAiLogo size="sm" />
                   <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">
-                    Retail India Pvt. Ltd.
+                    {storefrontConfig.companyName}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600 font-medium">
@@ -165,7 +166,7 @@ export default function InvoicePreviewModal({
                   GSTIN: <span className="font-bold text-slate-700">29AABCT1337M1Z6</span> | CIN: U72200KA2024PTC189001
                 </p>
                 <p className="text-[10px] text-slate-500">
-                  Toll-Free Support: 1800-889-TECH | Email: billing@techai.store
+                  {[storefrontConfig.helpline, storefrontConfig.email].filter(Boolean).join(" | ")}
                 </p>
               </div>
 
@@ -308,7 +309,7 @@ export default function InvoicePreviewModal({
                       <span>Digitally Authenticated Tax Invoice</span>
                     </div>
                     <p className="text-[10px] text-emerald-800 mt-0.5 leading-relaxed">
-                      Generated pursuant to Sec 31 of Central Goods and Services Tax Act, 2017. All serials are registered with official manufacturer warranty.
+                      Generated pursuant to Sec 31 of Central Goods and Services Tax Act, 2017.
                     </p>
                   </div>
                 </div>
@@ -358,7 +359,7 @@ export default function InvoicePreviewModal({
                 </div>
 
                 <div className="border-t border-slate-200 pt-2 mt-2 flex justify-between items-baseline font-bold">
-                  <span className="text-slate-900 text-sm">Grand Total (INR):</span>
+                  <span className="text-slate-900 text-sm">Grand Total (₹):</span>
                   <span className="text-slate-950 font-black text-base sm:text-lg">
                     ₹{order.finalAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </span>

@@ -241,7 +241,7 @@ export default function CategoryBubbles({
               </div>
 
               <p className="text-[11px] font-medium text-slate-300 leading-snug mt-1.5">
-                100% Genuine Certified Brands with AI Price Match & Instant Dispatch.
+                Explore electronics, gadgets and everyday essentials.
               </p>
             </div>
 

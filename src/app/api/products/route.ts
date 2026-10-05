@@ -1,3 +1,4 @@
+import { storefrontProduct } from "@/lib/storefront-catalog";
 import { databaseErrorResponse } from "@/lib/database-errors";
 import { pagination } from "@/lib/query";
 import { validateProductImages } from "@/lib/product-images";
@@ -80,7 +81,7 @@ export async function GET(req: Request) {
       Product.countDocuments({}).read("primary").maxTimeMS(3_000),
       Product.find({}).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).read("secondaryPreferred").maxTimeMS(3_000).lean(),
     ]);
-    const clientProducts = products.map(toClientProduct);
+    const clientProducts = products.map(toClientProduct).map(product => searchParams.get("view") === "storefront" ? storefrontProduct(product) : product);
 
     return NextResponse.json({ success: true, count: clientProducts.length, total, page, limit, totalPages: Math.ceil(total / limit), products: clientProducts });
   } catch (error) {

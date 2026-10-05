@@ -1,29 +1,29 @@
 "use client";
 
 import React from "react";
-import { ShieldCheck, Lock, Truck, RefreshCw, Headphones, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, Lock, Truck, RefreshCw } from "lucide-react";
 
 export default function TrustBadgesBar() {
   const TRUST_ITEMS = [
     {
       icon: ShieldCheck,
-      title: "100% Genuine Products",
-      desc: "Direct brand sourcing with authentic warranties",
+      title: "Product Details",
+      desc: "Compare specifications before you buy",
     },
     {
       icon: Lock,
       title: "Secure Payments",
-      desc: "256-bit encrypted checkout via UPI & Cards",
+      desc: "UPI, cards and netbanking via Razorpay",
     },
     {
       icon: Truck,
-      title: "Fast Doorstep Delivery",
-      desc: "Express dispatch with live order tracking",
+      title: "Order Tracking",
+      desc: "Follow order updates from your account",
     },
     {
       icon: RefreshCw,
-      title: "7-Day Easy Replacement",
-      desc: "Hassle-free support for damaged or missing items",
+      title: "Order Support",
+      desc: "Manage return requests from your orders",
     },
   ];
 
@@ -39,7 +39,7 @@ export default function TrustBadgesBar() {
                   <Icon className="w-5 h-5 text-cyan-700" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-xs">{item.title}</h4>
+                  <h3 className="font-bold text-slate-900 text-xs">{item.title}</h3>
                   <p className="text-[11px] text-slate-500 font-medium mt-0.5 leading-snug">{item.desc}</p>
                 </div>
               </div>

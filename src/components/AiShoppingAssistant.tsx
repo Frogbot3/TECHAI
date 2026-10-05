@@ -1,7 +1,7 @@
 "use client";
+import ProductImage from "./ProductImage";
 
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, X, MessageSquare, Send, ShoppingCart, ArrowRight, Bot } from "lucide-react";
 import { Product } from "@/lib/types";
 
@@ -90,7 +90,7 @@ export default function AiShoppingAssistant({
         {!isOpen && (
           <button
             type="button"
-            onClick={() => setIsOpen(true)}
+            aria-label="Open AI shopping assistant" onClick={() => setIsOpen(true)}
             className="flex items-center space-x-2 px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-full shadow-xl border border-slate-700 transition-transform hover:scale-105 cursor-pointer text-xs font-bold"
           >
             <div className="w-5 h-5 rounded-full bg-cyan-500 text-slate-950 flex items-center justify-center">
@@ -102,13 +102,8 @@ export default function AiShoppingAssistant({
       </div>
 
       {/* Assistant Modal / Popup Panel */}
-      <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
+          <div
             className="fixed bottom-20 md:bottom-6 right-3 sm:right-6 z-50 w-[calc(100vw-1.5rem)] sm:w-96 max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col h-[460px] max-h-[75vh]"
           >
             {/* Header */}
@@ -163,7 +158,7 @@ export default function AiShoppingAssistant({
                             }}
                             className="flex items-center space-x-2.5 min-w-0 cursor-pointer flex-1"
                           >
-                            <img
+                            <ProductImage
                               src={prod.image}
                               alt={prod.title}
                               className="w-10 h-10 object-contain rounded-lg bg-slate-50 p-1 flex-shrink-0"
@@ -226,9 +221,8 @@ export default function AiShoppingAssistant({
                 <Send className="w-3.5 h-3.5" />
               </button>
             </form>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
     </>
   );
 }

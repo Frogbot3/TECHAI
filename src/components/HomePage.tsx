@@ -1,0 +1,640 @@
+"use client";
+
+import React, { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useTechAiStore } from "@/lib/store";
+import Navbar from "@/components/Navbar";
+import MobileBottomNav from "@/components/MobileBottomNav";
+import HeroSlider from "@/components/HeroSlider";
+import dynamic from "next/dynamic";
+import BrandStoresSection from "@/components/BrandStoresSection";
+import CustomerReviewsSection from "@/components/CustomerReviewsSection";
+import SectionHeader from "@/components/SectionHeader";
+import { homepageCollections } from "@/lib/homepage";
+import { storefrontConfig } from "@/lib/storefront-config";
+import Footer from "@/components/Footer";
+import FlashDealsSection from "@/components/FlashDealsSection";
+import ShopByNeedSection from "@/components/ShopByNeedSection";
+import FilterSidebar from "@/components/FilterSidebar";
+import TrustBadgesBar from "@/components/TrustBadgesBar";
+import ProductCard from "@/components/ProductCard";
+import MiniCartToast from "@/components/MiniCartToast";
+import AiShoppingAssistant from "@/components/AiShoppingAssistant";
+import RecentlyViewedSection, { recordRecentlyViewed } from "@/components/RecentlyViewedSection";
+import { Product, Order, HeroCampaign } from "@/lib/types";
+import { Sparkles, SlidersHorizontal, ChevronRight, Filter } from "lucide-react";
+
+const ProductDetailModal = dynamic(() => import("@/components/ProductDetailModal"));
+const ProductComparisonModal = dynamic(() => import("@/components/ProductComparisonModal"));
+const CartDrawer = dynamic(() => import("@/components/CartDrawer"));
+const AuthModal = dynamic(() => import("@/components/AuthModal"));
+const CheckoutModal = dynamic(() => import("@/components/CheckoutModal"));
+const OrderTrackingModal = dynamic(() => import("@/components/OrderTrackingModal"));
+const InvoicePreviewModal = dynamic(() => import("@/components/InvoicePreviewModal"));
+const WriteReviewModal = dynamic(() => import("@/components/WriteReviewModal"));
+
+export default function HomePage({ initialProducts, initialCampaigns, refreshOnMount }: { initialProducts: Product[]; initialCampaigns: HeroCampaign[]; refreshOnMount: boolean }) {
+  const router = useRouter();
+  const store = useTechAiStore({ products: initialProducts, campaigns: initialCampaigns, refreshOnMount });
+
+  // Navigation & Search State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All Categories");
+  const [sortBy, setSortBy] = useState<"featured" | "price-low" | "price-high" | "rating" | "newest">("featured");
+
+  // Filter States
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedPriceRange, setSelectedPriceRange] = useState<string | null>(null);
+  const [minRating, setMinRating] = useState<number | null>(null);
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [minDiscount, setMinDiscount] = useState<number | null>(null);
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+
+  // Modals & Drawers
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+  const [compareProduct, setCompareProduct] = useState<Product | null>(null);
+  const [lastAddedProduct, setLastAddedProduct] = useState<Product | null>(null);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isTrackingOpen, setIsTrackingOpen] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<string | undefined>(undefined);
+  const [trackingOrderId, setTrackingOrderId] = useState<string>("");
+  const [activeInvoiceOrder, setActiveInvoiceOrder] = useState<Order | null>(null);
+  const [reviewProduct, setReviewProduct] = useState<any | null>(null);
+
+  // Filter & Sort Logic
+  const filteredProducts = useMemo(() => {
+    return store.products
+      .filter((product) => {
+        // Category Match
+        const matchesCategory =
+          selectedCategory === "All Categories" || product.category === selectedCategory;
+
+        // Search Match
+        const cleanSearch = searchQuery.trim().toLowerCase();
+        const matchesSearch =
+          !cleanSearch ||
+          product.title.toLowerCase().includes(cleanSearch) ||
+          product.brand.toLowerCase().includes(cleanSearch) ||
+          product.category.toLowerCase().includes(cleanSearch);
+
+        // Brand Filter
+        const matchesBrand =
+          selectedBrands.length === 0 || selectedBrands.includes(product.brand);
+
+        // Price Filter
+        let matchesPrice = true;
+        if (selectedPriceRange) {
+          const [min, max] = selectedPriceRange.split("-").map(Number);
+          matchesPrice = product.price >= min && product.price <= max;
+        }
+
+        // Rating Filter
+        const matchesRating = minRating === null || product.rating >= minRating;
+
+        // Stock Filter
+        const matchesStock = !inStockOnly || product.stock > 0;
+
+        // Discount Filter
+        const matchesDiscount = minDiscount === null || product.discountPercent >= minDiscount;
+
+        return (
+          matchesCategory &&
+          matchesSearch &&
+          matchesBrand &&
+          matchesPrice &&
+          matchesRating &&
+          matchesStock &&
+          matchesDiscount
+        );
+      })
+      .sort((a, b) => {
+        if (sortBy === "price-low") return a.price - b.price;
+        if (sortBy === "price-high") return b.price - a.price;
+        if (sortBy === "rating") return b.rating - a.rating;
+        return 0;
+      });
+  }, [
+    store.products,
+    selectedCategory,
+    searchQuery,
+    selectedBrands,
+    selectedPriceRange,
+    minRating,
+    inStockOnly,
+    minDiscount,
+    sortBy,
+  ]);
+
+  const { flashDeals, bestSellers, recommendedProducts } = useMemo(() => homepageCollections(store.products, store.heroCampaigns), [store.products, store.heroCampaigns]);
+
+  const flashDeadline = storefrontConfig.flashDealsEndAt || store.heroCampaigns
+    .filter(c => flashDeals.some(p => p.id === c.productId))
+    .map(c => c.endAt).sort((a, b) => Date.parse(a) - Date.parse(b))[0] || "";
+
+  const handleAddToCartWithToast = (product: Product, quantity = 1) => {
+    store.addToCart(product, quantity);
+    recordRecentlyViewed(product.id);
+    setLastAddedProduct(product);
+  };
+
+  const handleOpenProductDetail = (product: Product) => {
+    recordRecentlyViewed(product.id);
+    setQuickViewProduct(product);
+  };
+
+  const handleBuyNow = (product: Product, quantity: number) => {
+    store.addToCart(product, quantity);
+    recordRecentlyViewed(product.id);
+    setQuickViewProduct(null);
+    if (!store.user) {
+      setPendingCheckout(true);
+      setIsAuthOpen(true);
+    } else {
+      setIsCheckoutOpen(true);
+    }
+  };
+
+  const handleProceedToCheckout = (couponCode?: string) => {
+    setAppliedCoupon(couponCode);
+    if (!store.user) {
+      setPendingCheckout(true);
+      setIsAuthOpen(true);
+    } else {
+      setIsCheckoutOpen(true);
+    }
+  };
+
+  const handleToggleBrand = (brand: string) => {
+    setSelectedBrands((prev) =>
+      prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]
+    );
+  };
+
+  const handleResetFilters = () => {
+    setSelectedBrands([]);
+    setSelectedPriceRange(null);
+    setMinRating(null);
+    setInStockOnly(false);
+    setMinDiscount(null);
+    setSearchQuery("");
+    setSelectedCategory("All Categories");
+  };
+
+  const handleResetHome = () => {
+    setSelectedCategory("All Categories");
+    setSearchQuery("");
+    setSelectedBrands([]);
+    setSelectedPriceRange(null);
+    setMinRating(null);
+    setInStockOnly(false);
+    setMinDiscount(null);
+    setIsMobileFilterOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cartCount = store.cart.reduce((sum, item) => sum + item.quantity, 0);
+  const isHomeShowcase = selectedCategory === "All Categories" && !searchQuery.trim() && !selectedBrands.length && minDiscount === null && minRating === null && !selectedPriceRange && !inStockOnly;
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-cyan-500 selection:text-slate-950 pb-20 md:pb-8">
+      {/* 1. Header with Live Search & Mega Menu */}
+      <Navbar
+        cartCount={cartCount}
+        wishlistCount={store.wishlist.length}
+        user={store.user}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+        products={store.products}
+        onOpenCart={() => setIsCartOpen(true)}
+        onOpenAuth={() => {
+          setPendingCheckout(false);
+          setIsAuthOpen(true);
+        }}
+        onOpenTracking={() => {
+          setTrackingOrderId("");
+          setIsTrackingOpen(true);
+        }}
+        onSelectProduct={handleOpenProductDetail}
+        onLogout={store.logoutUser}
+        onResetHome={handleResetHome}
+      />
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto pb-20 md:pb-12">
+        {isHomeShowcase ? (
+          /* HOMEPAGE SHOWCASE */
+          <div className="space-y-4">
+            {/* 2. Main Hero Section */}
+            <HeroSlider
+              products={store.products}
+              campaigns={store.heroCampaigns}
+              onExploreCategory={(cat) => setSelectedCategory(cat)}
+              onSelectProduct={(p) => setQuickViewProduct(p)}
+              onOpenProductPage={(p) => router.push(`/product/${encodeURIComponent(p.id)}`)}
+            />
+
+            {/* 3. Flash Deals Section */}
+            <FlashDealsSection
+              products={flashDeals}
+              loading={!store.isLoaded}
+              endAt={flashDeadline}
+              countdownLabel={storefrontConfig.flashDealsEndAt ? "Ends in" : "Next offer ends in"}
+              wishlist={store.wishlist}
+              onAddToCart={handleAddToCartWithToast}
+              onQuickView={(p) => setQuickViewProduct(p)}
+              onToggleWishlist={store.toggleWishlist}
+              onViewAll={() => { handleResetFilters(); setMinDiscount(20); }}
+            />
+
+            {/* 5. Shop By Need Discovery Grid */}
+            <ShopByNeedSection
+              onSelectNeed={(category, query) => {
+                setSelectedCategory(category);
+                if (query) setSearchQuery(query);
+              }}
+            />
+
+            {/* 6. Best Sellers */}
+            <section className="px-3 sm:px-6 lg:px-8 py-4">
+              <SectionHeader title="Best Sellers" subtitle="Customer favourites from our catalogue" action="View All" onAction={() => { handleResetFilters(); setMinRating(4.4); }} />
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 items-stretch">
+                {bestSellers.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    isInWishlist={store.wishlist.includes(product.id)}
+                    onAddToCart={handleAddToCartWithToast}
+                    onQuickView={(p) => setQuickViewProduct(p)}
+                    onToggleWishlist={store.toggleWishlist}
+                  />
+                ))}
+              </div>
+            </section>
+
+            {/* 7. Recommended Products */}
+            <section className="px-3 sm:px-6 lg:px-8 py-4">
+              <SectionHeader title="Recommended For You" subtitle="Discover more from our catalogue" action="Explore Catalog" onAction={() => router.push("/search")} />
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 items-stretch">
+                {recommendedProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    isInWishlist={store.wishlist.includes(product.id)}
+                    onAddToCart={handleAddToCartWithToast}
+                    onQuickView={(p) => setQuickViewProduct(p)}
+                    onToggleWishlist={store.toggleWishlist}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <BrandStoresSection products={store.products} onSelectBrand={brand => { handleResetFilters(); setSelectedBrands([brand]); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+            <CustomerReviewsSection products={store.products} />
+
+            {/* 8. Recently Viewed Products */}
+            <RecentlyViewedSection
+              allProducts={store.products}
+              wishlist={store.wishlist}
+              onAddToCart={handleAddToCartWithToast}
+              onQuickView={handleOpenProductDetail}
+              onToggleWishlist={store.toggleWishlist}
+            />
+
+            {/* 9. Trust Features */}
+            <TrustBadgesBar />
+          </div>
+        ) : (
+          /* PRODUCT LISTING & FILTER VIEW (When Searching or Filtering) */
+          <div className="px-3 sm:px-6 lg:px-8 pt-5">
+            {/* Top Results Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 p-4 bg-white rounded-xl border border-slate-200 shadow-xs">
+              <div>
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <span>{searchQuery ? `Search Results for "${searchQuery}"` : selectedBrands.length === 1 ? selectedBrands[0] : minDiscount !== null ? "Today's Deals" : selectedCategory}</span>
+                  <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                    {filteredProducts.length} items
+                  </span>
+                </h1>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Browse products and filter by availability
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2 self-start sm:self-auto">
+                {/* Mobile Filter Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsMobileFilterOpen((prev) => !prev)}
+                  className="md:hidden flex items-center space-x-1.5 px-3 py-2 bg-slate-100 rounded-lg text-xs font-bold text-slate-800"
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>Filter</span>
+                </button>
+
+                {/* Sort Dropdown */}
+                <div className="flex items-center space-x-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-slate-500">Sort:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e: any) => setSortBy(e.target.value)}
+                    className="bg-transparent focus:outline-none text-slate-900 font-bold cursor-pointer"
+                  >
+                    <option value="featured">Featured</option>
+                    <option value="price-low">Price: Low to High</option>
+                    <option value="price-high">Price: High to Low</option>
+                    <option value="rating">Customer Rating</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Listing Layout (Sidebar Filter + Product Grid) */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+              {/* Desktop Filter Sidebar (3 cols) */}
+              <div className="hidden md:block md:col-span-3 sticky top-24 self-start">
+                <FilterSidebar
+                  products={store.products}
+                  selectedBrands={selectedBrands}
+                  selectedPriceRange={selectedPriceRange}
+                  minRating={minRating}
+                  inStockOnly={inStockOnly}
+                  minDiscount={minDiscount}
+                  onToggleBrand={handleToggleBrand}
+                  onSelectPriceRange={setSelectedPriceRange}
+                  onSelectMinRating={setMinRating}
+                  onToggleInStock={() => setInStockOnly((prev) => !prev)}
+                  onSelectMinDiscount={setMinDiscount}
+                  onResetFilters={handleResetFilters}
+                />
+              </div>
+
+              {/* Mobile Slide-down Filter */}
+              {isMobileFilterOpen && (
+                <div className="md:hidden col-span-1 mb-4 bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <span className="font-bold text-xs text-slate-900">Refine Filters</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileFilterOpen(false)}
+                      className="px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold"
+                    >
+                      Apply & Close
+                    </button>
+                  </div>
+                  <FilterSidebar
+                    products={store.products}
+                    selectedBrands={selectedBrands}
+                    selectedPriceRange={selectedPriceRange}
+                    minRating={minRating}
+                    inStockOnly={inStockOnly}
+                    minDiscount={minDiscount}
+                    onToggleBrand={handleToggleBrand}
+                    onSelectPriceRange={setSelectedPriceRange}
+                    onSelectMinRating={setMinRating}
+                    onToggleInStock={() => setInStockOnly((prev) => !prev)}
+                    onSelectMinDiscount={setMinDiscount}
+                    onResetFilters={handleResetFilters}
+                  />
+                </div>
+              )}
+
+              {/* Product Cards Column (9 cols) */}
+              <div className="md:col-span-9 self-start space-y-8">
+                {filteredProducts.length === 0 ? (
+                  <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3 shadow-xs">
+                    <Sparkles className="w-8 h-8 text-slate-300 mx-auto" />
+                    <h3 className="text-sm font-bold text-slate-800">No products match your filters</h3>
+                    <p className="text-xs text-slate-500">
+                      Try removing some filters or search for another item.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors"
+                    >
+                      Clear All Filters
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    <div
+                      className={`grid gap-3 sm:gap-4 items-stretch ${
+                        filteredProducts.length === 1
+                          ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-xl"
+                          : filteredProducts.length === 2
+                          ? "grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 max-w-3xl"
+                          : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+                      }`}
+                    >
+                      {filteredProducts.map((product) => (
+                        <ProductCard
+                          key={product.id}
+                          product={product}
+                          isInWishlist={store.wishlist.includes(product.id)}
+                          onAddToCart={handleAddToCartWithToast}
+                          onQuickView={handleOpenProductDetail}
+                          onToggleWishlist={store.toggleWishlist}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Fallback recommendation block when few products in category */}
+                    {filteredProducts.length < 5 && (
+                      <div className="pt-6 border-t border-slate-200/80">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                              Explore More Departments
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                              Top customer favorites across other categories
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleResetHome}
+                            className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>View All Products</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
+                          {store.products
+                            .filter((p) => p.category !== selectedCategory)
+                            .slice(0, 4)
+                            .map((product) => (
+                              <ProductCard
+                                key={`rec-${product.id}`}
+                                product={product}
+                                isInWishlist={store.wishlist.includes(product.id)}
+                                onAddToCart={handleAddToCartWithToast}
+                                onQuickView={handleOpenProductDetail}
+                                onToggleWishlist={store.toggleWishlist}
+                              />
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* 9. Professional Marketplace Footer */}
+      <Footer
+        onOpenTracking={() => setIsTrackingOpen(true)}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onSelectCategory={(cat) => setSelectedCategory(cat)}
+      />
+
+      {/* Mini-Cart Non-Blocking Feedback Toast */}
+      {lastAddedProduct && <MiniCartToast
+        product={lastAddedProduct}
+        onClose={() => setLastAddedProduct(null)}
+        onViewCart={() => setIsCartOpen(true)}
+        onCheckout={handleProceedToCheckout}
+      />}
+
+      {/* Product Detail Modal */}
+      {quickViewProduct && <ProductDetailModal
+        product={quickViewProduct}
+        user={store.user}
+        allProducts={store.products}
+        onClose={() => setQuickViewProduct(null)}
+        onAddToCart={handleAddToCartWithToast}
+        onBuyNow={handleBuyNow}
+        onReviewSubmitted={store.addReviewToProduct}
+        onOpenCompare={(p) => {
+          setCompareProduct(p);
+          setQuickViewProduct(null);
+        }}
+      />}
+
+      {/* Product Comparison Modal */}
+      {compareProduct && <ProductComparisonModal
+        isOpen={!!compareProduct}
+        baseProduct={compareProduct}
+        comparisonProducts={store.products}
+        onClose={() => setCompareProduct(null)}
+        onAddToCart={handleAddToCartWithToast}
+      />}
+
+      {/* Cart Drawer */}
+      {isCartOpen && <CartDrawer
+        isOpen={isCartOpen}
+        cart={store.cart}
+        onClose={() => setIsCartOpen(false)}
+        onUpdateQuantity={store.updateCartQuantity}
+        onRemoveItem={store.removeFromCart}
+        onProceedToCheckout={handleProceedToCheckout}
+      />}
+
+      {/* Auth Modal */}
+      {isAuthOpen && <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => {
+          setIsAuthOpen(false);
+          setPendingCheckout(false);
+        }}
+        onLoginSuccess={(user) => {
+          store.setAuthenticatedUser(user);
+          if (pendingCheckout) {
+            setIsCheckoutOpen(true);
+            setPendingCheckout(false);
+          }
+        }}
+      />}
+
+      {/* Checkout Modal */}
+      {isCheckoutOpen && <CheckoutModal
+        isOpen={isCheckoutOpen}
+        cart={store.cart}
+        appliedCoupon={appliedCoupon}
+        user={store.user}
+        onClose={() => setIsCheckoutOpen(false)}
+        onCreateOrder={store.createOrder}
+        onPaymentSuccess={async () => {
+          store.clearCart();
+          await store.refreshOrders();
+        }}
+        onOpenOrderTracking={(orderId) => {
+          setTrackingOrderId(orderId);
+          setIsTrackingOpen(true);
+        }}
+      />}
+
+      {/* Order Tracking Modal */}
+      {isTrackingOpen && <OrderTrackingModal
+        isOpen={isTrackingOpen}
+        orders={store.orders}
+        initialOrderId={trackingOrderId}
+        onClose={() => setIsTrackingOpen(false)}
+        onOpenInvoice={(ord) => setActiveInvoiceOrder(ord)}
+        onWriteReview={(prod) => setReviewProduct(prod)}
+      />}
+
+      {/* Printable Invoice Modal */}
+      {activeInvoiceOrder && <InvoicePreviewModal
+        isOpen={!!activeInvoiceOrder}
+        order={activeInvoiceOrder}
+        onClose={() => setActiveInvoiceOrder(null)}
+      />}
+
+      {/* Standalone Write Review Modal */}
+      {reviewProduct && <WriteReviewModal
+        isOpen={!!reviewProduct}
+        product={reviewProduct}
+        user={store.user}
+        onClose={() => setReviewProduct(null)}
+        onReviewSubmitted={(productId, rev) => {
+          store.addReviewToProduct(productId, rev);
+        }}
+      />}
+
+      {/* Floating AI Shopping Assistant */}
+      <AiShoppingAssistant
+        products={store.products}
+        onSelectProduct={(p) => setQuickViewProduct(p)}
+        onAddToCart={handleAddToCartWithToast}
+      />
+
+      {/* Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        cartCount={cartCount}
+        wishlistCount={store.wishlist.length}
+        onOpenCart={() => setIsCartOpen(true)}
+        onOpenAuth={() => {
+          if (store.user) {
+            window.location.assign("/orders");
+          } else {
+            setIsAuthOpen(true);
+          }
+        }}
+        onOpenCategories={() => {
+          handleResetHome();
+          setTimeout(() => {
+            const el = document.getElementById("shop-by-need");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }, 80);
+        }}
+        onOpenSearch={() => {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          document.querySelector<HTMLInputElement>('input[placeholder="Search products, brands..."]')?.focus();
+        }}
+        onResetHome={handleResetHome}
+      />
+    </div>
+  );
+}

@@ -1,12 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Timer, Flame, ArrowRight } from "lucide-react";
+import { Timer, Flame } from "lucide-react";
 import { Product } from "@/lib/types";
-import ProductCard from "./ProductCard";
+import ProductCard, { ProductCardSkeleton } from "./ProductCard";
+import SectionHeader from "./SectionHeader";
+import { countdown } from "@/lib/homepage";
 
 interface FlashDealsSectionProps {
   products: Product[];
+  endAt?: string;
+  countdownLabel?: string;
+  loading?: boolean;
   wishlist: string[];
   onAddToCart: (product: Product) => void;
   onQuickView: (product: Product) => void;
@@ -16,69 +21,35 @@ interface FlashDealsSectionProps {
 
 export default function FlashDealsSection({
   products,
+  endAt = "",
+  countdownLabel = "Ends in",
+  loading = false,
   wishlist,
   onAddToCart,
   onQuickView,
   onToggleWishlist,
   onViewAll,
 }: FlashDealsSectionProps) {
-  const [timeLeft, setTimeLeft] = useState({ hours: 7, minutes: 45, seconds: 12 });
-
+  const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0) return { ...prev, minutes: 59, seconds: 59 };
-        if (prev.hours > 0) return { hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return { hours: 12, minutes: 0, seconds: 0 };
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const dealProducts = (
-    products.filter((p) => p.discountPercent >= 40).length >= 2
-      ? products.filter((p) => p.discountPercent >= 40)
-      : products.filter((p) => p.discountPercent >= 20).length > 0
-      ? products.filter((p) => p.discountPercent >= 20)
-      : products.slice(0, 6)
-  ).slice(0, 6);
-
-  if (dealProducts.length === 0) return null;
-
+    setNow(Date.now());
+    if (!endAt) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [endAt]);
+  const timeLeft = now === null ? null : countdown(endAt, now);
+  if (!loading && !products.length) return null;
   return (
     <section className="px-3 sm:px-6 lg:px-8 py-4">
-      {/* Header with Title & Clean Countdown Timer */}
-      <div className="flex items-center justify-between mb-3.5 pb-2.5 border-b border-slate-200/80">
-        <div className="flex items-center space-x-2.5 sm:space-x-3.5 flex-wrap gap-y-1.5">
-          <div className="flex items-center space-x-1.5 text-slate-900 font-bold text-lg sm:text-xl tracking-tight">
-            <Flame className="w-5 h-5 fill-rose-600 text-rose-600" />
-            <span>Flash Deals</span>
-          </div>
-
-          <div className="flex items-center space-x-1 text-xs font-mono font-bold text-slate-700 bg-slate-100 border border-slate-200/70 px-2.5 py-0.5 rounded-lg shadow-2xs">
-            <Timer className="w-3.5 h-3.5 text-slate-500 mr-1" />
-            <span className="hidden sm:inline text-slate-500">Ends in:</span>
-            <span className="text-rose-600 font-extrabold">
-              {String(timeLeft.hours).padStart(2, "0")}:{String(timeLeft.minutes).padStart(2, "0")}:
-              {String(timeLeft.seconds).padStart(2, "0")}
-            </span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={onViewAll}
-          className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-1 cursor-pointer transition-colors"
-        >
-          <span>View All Deals</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
+      <SectionHeader title="Flash Deals" action="View All Deals" onAction={onViewAll}>
+        <Flame aria-hidden="true" className="w-5 h-5 text-rose-600 fill-rose-600" />
+        {timeLeft && <span role="timer" aria-label="Flash deals countdown" className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-rose-700 bg-slate-100 px-2.5 py-1 rounded-lg">
+          <Timer className="w-3.5 h-3.5" />{timeLeft.expired ? "Offer ended" : countdownLabel + " " + timeLeft.label}
+        </span>}
+      </SectionHeader>
       {/* Grid of Product Cards: Always even rows on phone (2-cols) and desktop (6-cols) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 items-stretch">
-        {dealProducts.map((product) => (
+        {loading ? Array.from({ length: 6 }, (_, i) => <ProductCardSkeleton key={i} />) : products.map((product) => (
           <ProductCard
             key={product.id}
             product={product}

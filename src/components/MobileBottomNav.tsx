@@ -32,14 +32,14 @@ export default function MobileBottomNav({
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-2 py-1 flex items-center justify-around shadow-lg safe-area-pb"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-2 h-[calc(64px+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] flex items-center justify-around shadow-lg"
       aria-label="Mobile Navigation"
     >
       {/* 1. Home */}
-      <Link
+      <Link prefetch={false}
         href="/"
         onClick={() => onResetHome?.()}
-        className={`flex-1 flex flex-col items-center justify-center py-1 px-1 text-[10px] font-bold transition-colors ${
+        className={`min-h-11 flex-1 flex flex-col items-center justify-center py-1 px-1 text-[10px] font-bold transition-colors ${
           isHome && !isWishlist ? "text-cyan-800 font-extrabold" : "text-slate-500 hover:text-slate-900"
         }`}
       >
@@ -51,7 +51,7 @@ export default function MobileBottomNav({
       <button
         type="button"
         onClick={onOpenCategories || (() => {})}
-        className="flex-1 flex flex-col items-center justify-center py-1 px-1 text-[10px] font-bold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+        className="min-h-11 flex-1 flex flex-col items-center justify-center py-1 px-1 text-[10px] font-bold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
       >
         <LayoutGrid className="w-5 h-5 mb-0.5" />
         <span>Categories</span>
@@ -61,16 +61,16 @@ export default function MobileBottomNav({
       <button
         type="button"
         onClick={onOpenSearch || (() => {})}
-        className="flex-1 flex flex-col items-center justify-center py-1 px-1 text-[10px] font-bold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+        className="min-h-11 flex-1 flex flex-col items-center justify-center py-1 px-1 text-[10px] font-bold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
       >
         <Search className="w-5 h-5 mb-0.5" />
         <span>Search</span>
       </button>
 
       {/* 4. Wishlist */}
-      <Link
+      <Link prefetch={false}
         href="/wishlist"
-        className={`flex-1 flex flex-col items-center justify-center py-1 px-1 text-[10px] font-bold transition-colors relative ${
+        className={`min-h-11 flex-1 flex flex-col items-center justify-center py-1 px-1 text-[10px] font-bold transition-colors relative ${
           isWishlist ? "text-rose-600 font-extrabold" : "text-slate-500 hover:text-slate-900"
         }`}
       >
@@ -89,7 +89,7 @@ export default function MobileBottomNav({
       <button
         type="button"
         onClick={onOpenCart}
-        className="flex-1 flex flex-col items-center justify-center py-1 px-1 text-[10px] font-bold text-slate-500 hover:text-slate-900 transition-colors relative cursor-pointer"
+        className="min-h-11 flex-1 flex flex-col items-center justify-center py-1 px-1 text-[10px] font-bold text-slate-500 hover:text-slate-900 transition-colors relative cursor-pointer"
       >
         <div className="relative">
           <ShoppingCart className="w-5 h-5 mb-0.5" />
@@ -106,7 +106,7 @@ export default function MobileBottomNav({
       <button
         type="button"
         onClick={onOpenAuth || (() => {})}
-        className="flex-1 flex flex-col items-center justify-center py-1 px-1 text-[10px] font-bold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+        className="min-h-11 flex-1 flex flex-col items-center justify-center py-1 px-1 text-[10px] font-bold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
       >
         <User className="w-5 h-5 mb-0.5" />
         <span>Account</span>

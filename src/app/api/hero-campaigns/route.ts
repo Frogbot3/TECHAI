@@ -1,3 +1,4 @@
+import { storefrontProduct } from "@/lib/storefront-catalog";
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { ADMIN_SESSION_COOKIE, getSessionFromCookie } from "@/lib/auth";
@@ -49,7 +50,7 @@ export async function GET(req: Request) {
       ? {}
       : { isActive: true, startAt: { $lte: now }, endAt: { $gte: now } };
     const campaigns = await getCampaignsWithProducts(filter, includeInactive);
-    return NextResponse.json({ success: true, campaigns });
+    return NextResponse.json({ success: true, campaigns: new URL(req.url).searchParams.get("view") === "storefront" ? campaigns.map(campaign => ({ ...campaign, product: campaign.product ? storefrontProduct(campaign.product) : undefined })) : campaigns });
   } catch (error) {
     console.error("Hero campaigns GET error:", error);
     if (includeInactive) {

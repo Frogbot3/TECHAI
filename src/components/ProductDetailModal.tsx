@@ -1,4 +1,5 @@
 "use client";
+import ProductImage from "./ProductImage";
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -92,12 +93,9 @@ export default function ProductDetailModal({
                       {product.discountPercent}% OFF
                     </span>
                   )}
-                  <img
+                  <ProductImage
                     src={currentDisplayImage}
                     alt={product.title}
-                    onError={(e) => {
-                      e.currentTarget.src = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80";
-                    }}
                     className="max-h-full max-w-full object-contain rounded-xl transition-all duration-200"
                   />
                 </div>
@@ -109,14 +107,14 @@ export default function ProductDetailModal({
                       <button
                         key={idx}
                         type="button"
-                        onClick={() => setSelectedImageIndex(idx)}
+                        aria-label={`View product image ${idx + 1}`} onClick={() => setSelectedImageIndex(idx)}
                         className={`w-12 h-12 rounded-xl p-1 bg-slate-50 border transition-all flex-shrink-0 cursor-pointer overflow-hidden ${
                           selectedImageIndex === idx
                             ? "border-cyan-600 ring-2 ring-cyan-500/30 scale-105 shadow-sm"
                             : "border-slate-200 hover:border-slate-400 opacity-70 hover:opacity-100"
                         }`}
                       >
-                        <img src={imgUrl} alt="" className="w-full h-full object-contain" />
+                        <ProductImage src={imgUrl} alt={`${product.title}, view ${idx + 1}`} className="w-full h-full object-contain" />
                       </button>
                     ))}
                   </div>
@@ -248,7 +246,7 @@ export default function ProductDetailModal({
                 <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 text-[11px] text-slate-600 font-medium">
                   <div className="flex items-center space-x-1.5">
                     <ShieldCheck className="w-4 h-4 text-cyan-600 flex-shrink-0" />
-                    <span>100% Genuine</span>
+                    <span>Product specifications</span>
                   </div>
                   <div className="flex items-center space-x-1.5">
                     <RotateCcw className="w-4 h-4 text-emerald-600 flex-shrink-0" />

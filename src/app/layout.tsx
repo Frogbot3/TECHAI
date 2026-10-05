@@ -1,3 +1,4 @@
+import { storefrontConfig } from "@/lib/storefront-config";
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
@@ -14,10 +15,10 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "TECH AI | Modern Next-Gen E-Commerce",
+  title: `${storefrontConfig.companyName} | Electronics, Mobiles & Gadgets`,
   description:
-    "Explore authentic AI spatial electronics, luxury watches, speed cleats, anti-stress companions, and next-gen gadgets with live tracking and fast delivery at TECH AI.",
-  keywords: ["TECH AI", "E-Commerce", "AI Gadgets", "Omega Swatch", "Adidas F50", "Pig Stress Toy", "Smart Electronics"],
+    "Shop electronics, smartphones, headphones, laptops, gaming accessories and home appliances at TECH AI. Compare prices, read customer reviews and track your orders.",
+  keywords: [storefrontConfig.companyName, "electronics store", "smartphones", "headphones", "laptops", "gaming accessories", "home appliances", "gadgets India"],
 };
 
 export default function RootLayout({
