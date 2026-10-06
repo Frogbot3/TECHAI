@@ -114,7 +114,7 @@ export default function SearchOverlay({
   };
 
   return (
-    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden text-slate-900 max-h-[80vh] overflow-y-auto">
+    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden text-slate-900 max-h-[calc(100dvh-250px)] md:max-h-[70vh] overflow-y-auto">
       {cleanQuery.length === 0 ? (
         /* Empty State: Recent & Popular Searches */
         <div className="p-4 space-y-4 text-xs">

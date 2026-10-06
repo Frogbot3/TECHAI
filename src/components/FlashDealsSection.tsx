@@ -40,7 +40,7 @@ export default function FlashDealsSection({
   const timeLeft = now === null ? null : countdown(endAt, now);
   if (!loading && !products.length) return null;
   return (
-    <section className="px-3 sm:px-6 lg:px-8 py-4">
+    <section id="flash-deals" className="scroll-mt-64 px-3 sm:px-6 lg:px-8 py-4">
       <SectionHeader title="Flash Deals" action="View All Deals" onAction={onViewAll}>
         <Flame aria-hidden="true" className="w-5 h-5 text-rose-600 fill-rose-600" />
         {timeLeft && <span role="timer" aria-label="Flash deals countdown" className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-rose-700 bg-slate-100 px-2.5 py-1 rounded-lg">
