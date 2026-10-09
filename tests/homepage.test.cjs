@@ -49,7 +49,7 @@ test('catalogue image endpoint rejects invalid fields and serves only raster ima
   const image = 'data:image/png;base64,aGVsbG8=';
   const loader = require('./load-ts.cjs')({
     '@/lib/mongodb': { connectToDatabase: async () => {} },
-    '@/models/Product': { __esModule: true, default: { findOne: () => ({ maxTimeMS: () => ({ lean: async () => ({ productId: 'test', image, normalizedImage: image }) }) }) } },
+    '@/models/Product': { __esModule: true, default: { findOne: () => { const query = { select: () => query, read: () => query, maxTimeMS: () => query, lean: async () => ({ productId: 'test', image, normalizedImage: image }) }; return query; } } },
   });
   const route = loader('src/app/api/products/[id]/image/route.ts');
   const context = { params: Promise.resolve({ id: 'test' }) };

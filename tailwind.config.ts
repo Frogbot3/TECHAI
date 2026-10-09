@@ -9,6 +9,28 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        admin: Object.fromEntries(
+          [
+            "page",
+            "surface",
+            "subtle",
+            "border",
+            "text",
+            "muted",
+            "primary",
+            "primary-hover",
+            "on-primary",
+            "selected",
+            "success",
+            "success-bg",
+            "warning",
+            "warning-bg",
+            "danger",
+            "danger-bg",
+            "info",
+            "info-bg",
+          ].map((name) => [name, `var(--admin-${name})`]),
+        ),
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
