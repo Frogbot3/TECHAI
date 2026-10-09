@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getSessionFromCookie, CUSTOMER_SESSION_COOKIE, ADMIN_SESSION_COOKIE } from "@/lib/auth";
 import { toClientOrder } from "@/lib/serializers";
+import { resolveCouponDiscount } from "@/lib/server-coupons";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import User from "@/models/User";
@@ -163,7 +164,17 @@ export async function POST(req: Request) {
     }
 
     const subtotal = trustedItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    const discountAmount = discountCode === "TECHAI10" ? Math.round(subtotal * 0.1) : 0;
+    let discountAmount = 0;
+    let appliedDiscountCode = "";
+    if (discountCode) {
+      try {
+        const coupon = await resolveCouponDiscount(discountCode, subtotal);
+        discountAmount = coupon.discount;
+        appliedDiscountCode = coupon.code;
+      } catch (error) {
+        return NextResponse.json({ success: false, message: error instanceof Error ? error.message : "Unable to apply coupon." }, { status: 400 });
+      }
+    }
     const shippingFee = deliveryType === "express" ? 99 : subtotal > 499 ? 0 : 49;
     const finalAmount = Math.max(0, subtotal - discountAmount + shippingFee);
     if (finalAmount <= 0) {
@@ -219,6 +230,7 @@ export async function POST(req: Request) {
       checkoutId: safeCheckoutId,
       totalAmount: subtotal,
       discountAmount,
+      discountCode: appliedDiscountCode,
       shippingFee,
       finalAmount,
       paymentMethod,

@@ -32,6 +32,7 @@ export interface IOrder extends Document {
   };
   totalAmount: number;
   discountAmount: number;
+  discountCode?: string;
   shippingFee: number;
   finalAmount: number;
   paymentMethod: "UPI" | "Card" | "NetBanking" | "COD";
@@ -98,6 +99,7 @@ const OrderSchema = new Schema<IOrder>(
       landmark: { type: String, default: "" },
     },
     totalAmount: { type: Number, required: true },
+    discountCode: { type: String, default: "" },
     discountAmount: { type: Number, default: 0 },
     shippingFee: { type: Number, default: 0 },
     finalAmount: { type: Number, required: true },

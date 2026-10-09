@@ -1,5 +1,6 @@
 "use client";
 
+import { useCouponPreview } from "@/lib/useCouponPreview";
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -119,7 +120,12 @@ export default function CheckoutModal({
 
   const checkoutIdRef = useRef("");
   const cartSignature = cart.map((item) => `${item.product.id}:${item.quantity}`).sort().join("|");
-  const checkoutStorageKey = `techai-checkout-id:${cartSignature}`;
+  const checkoutStorageKey = `techai-checkout-id:${cartSignature}:${appliedCoupon || ""}:${deliveryType}`;
+
+  useEffect(() => {
+    setPendingOrder(null);
+    setPendingPaymentResponse(null);
+  }, [checkoutStorageKey]);
 
   // Sync real user profile details dynamically
   useEffect(() => {
@@ -149,10 +155,11 @@ export default function CheckoutModal({
     checkoutIdRef.current = checkoutId;
   }, [isOpen, cartSignature, checkoutStorageKey]);
 
-  if (!isOpen) return null;
+
 
   const subtotal = cart.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
-  const discount = appliedCoupon === "TECHAI10" ? Math.round(subtotal * 0.1) : 0;
+  const { discount, error: couponError, busy: couponBusy } = useCouponPreview(appliedCoupon, subtotal, isOpen);
+  if (!isOpen) return null;
   const shippingFee = deliveryType === "express" ? 99 : (subtotal > 499 ? 0 : 49);
   const finalTotal = Math.max(0, subtotal - discount + shippingFee);
 
@@ -270,6 +277,10 @@ export default function CheckoutModal({
 
   const handlePaymentSubmit = async () => {
     if (step === "PROCESSING" || isSubmittingPayment) return;
+    if (!pendingOrder && (couponBusy || couponError)) {
+      setValidationError(couponError || "Please wait while we check your coupon.");
+      return;
+    }
     setValidationError("");
     setIsSubmittingPayment(true);
     setStep("PROCESSING");

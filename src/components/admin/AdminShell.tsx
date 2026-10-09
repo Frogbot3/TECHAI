@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import {
   BarChart3,
+  Ticket,
   Package,
   ShoppingBag,
   Users,
@@ -20,7 +21,13 @@ import TechAiLogo from "../TechAiLogo";
 import { ThemeSelector } from "./AdminTheme";
 import { AdminModal } from "./AdminUI";
 export type AdminTab =
-  "ANALYTICS" | "PRODUCTS" | "ORDERS" | "CUSTOMERS" | "CAMPAIGNS" | "REFUNDS";
+  | "ANALYTICS"
+  | "PRODUCTS"
+  | "ORDERS"
+  | "CUSTOMERS"
+  | "CAMPAIGNS"
+  | "REFUNDS"
+  | "COUPONS";
 const modules = [
   {
     id: "ANALYTICS",
@@ -45,6 +52,12 @@ const modules = [
     label: "Customers",
     icon: Users,
     description: "Your customer directory and contact information.",
+  },
+  {
+    id: "COUPONS",
+    label: "Coupons",
+    icon: Ticket,
+    description: "Manage discount codes, schedules and checkout offers.",
   },
   {
     id: "CAMPAIGNS",

@@ -1,4 +1,5 @@
 "use client";
+import { useCouponPreview } from "@/lib/useCouponPreview";
 import ProductImage from "./ProductImage";
 
 import React, { useState } from "react";
@@ -26,19 +27,17 @@ export default function CartDrawer({
   const [coupon, setCoupon] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const discount = appliedCoupon === "TECHAI10" ? Math.round(subtotal * 0.1) : 0;
+  const { discount, error: couponError, busy: couponBusy, retry: retryCoupon } = useCouponPreview(appliedCoupon, subtotal, isOpen);
+  if (!isOpen) return null;
   const shippingFee = subtotal > 499 || cart.length === 0 ? 0 : 49;
   const finalTotal = subtotal - discount + shippingFee;
 
   const handleApplyCoupon = () => {
-    if (coupon.trim().toUpperCase() === "TECHAI10") {
-      setAppliedCoupon("TECHAI10");
-    } else {
-      alert("Coupon not valid. Try TECHAI10.");
-    }
+    setAppliedCoupon(coupon.trim().toUpperCase() || null);
+    retryCoupon();
   };
 
   return (
@@ -120,24 +119,25 @@ export default function CartDrawer({
                   <Tag className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Coupon code"
+                    aria-label="Coupon code" placeholder="Coupon code"
                     value={coupon}
                     onChange={(e) => setCoupon(e.target.value)}
                     className="h-10 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-amber-400"
                   />
                 </div>
-                <button onClick={handleApplyCoupon} className="rounded-md bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-800">
+                <button disabled={couponBusy} onClick={handleApplyCoupon} className="rounded-md bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-800">
                   Apply
                 </button>
               </div>
 
               {appliedCoupon && (
                 <div className="flex items-center justify-between rounded-md bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
-                  <span>{appliedCoupon} applied</span>
+                  <span>{appliedCoupon} {couponBusy ? "checking…" : couponError ? "not applied" : "applied"}</span>
                   <button onClick={() => setAppliedCoupon(null)} className="text-red-600">Remove</button>
                 </div>
               )}
 
+              {couponError && <p role="alert" className="text-xs text-red-700">{couponError}</p>}
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-slate-600">
                   <span>Subtotal</span>
@@ -160,8 +160,9 @@ export default function CartDrawer({
               </div>
 
               <button
+                disabled={couponBusy}
                 onClick={() => {
-                  onProceedToCheckout(appliedCoupon || undefined);
+                  onProceedToCheckout(!couponError && !couponBusy ? appliedCoupon || undefined : undefined);
                   onClose();
                 }}
                 className="flex w-full items-center justify-center gap-2 rounded-md bg-amber-400 py-3 text-sm font-extrabold text-slate-950 hover:bg-amber-500"

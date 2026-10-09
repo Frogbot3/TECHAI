@@ -1,5 +1,6 @@
 "use client";
 
+import { useCouponPreview } from "@/lib/useCouponPreview";
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,14 +39,13 @@ export default function CartPage() {
   );
   const totalSavings = totalMrp - subtotal;
   const shippingFee = subtotal > 499 || subtotal === 0 ? 0 : 49;
-  const discountAmount = appliedCoupon === "TECHAI10" ? Math.round(subtotal * 0.1) : 0;
+  const { discount: discountAmount, error: couponError, busy: couponBusy, retry: retryCoupon } = useCouponPreview(appliedCoupon, subtotal);
   const finalTotal = subtotal - discountAmount + shippingFee;
 
   const handleApplyCoupon = (e: React.FormEvent) => {
     e.preventDefault();
-    if (couponCode.trim().toUpperCase() === "TECHAI10") {
-      setAppliedCoupon("TECHAI10");
-    }
+    setAppliedCoupon(couponCode.trim().toUpperCase() || null);
+    retryCoupon();
   };
 
   const handleProceed = () => {
@@ -224,7 +224,7 @@ export default function CartPage() {
                 )}
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-emerald-700 font-semibold">
-                    <span>Coupon Discount (TECHAI10)</span>
+                    <span>Coupon Discount ({appliedCoupon})</span>
                     <span>-₹{discountAmount.toLocaleString("en-IN")}</span>
                   </div>
                 )}
@@ -244,7 +244,7 @@ export default function CartPage() {
               <form onSubmit={handleApplyCoupon} className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Enter TECHAI10"
+                  aria-label="Coupon code" placeholder="Enter coupon code"
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value)}
                   className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs uppercase font-bold focus:outline-none focus:ring-1 focus:ring-cyan-500"
@@ -258,10 +258,11 @@ export default function CartPage() {
               </form>
               {appliedCoupon && (
                 <p className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 -mt-2">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> 10% coupon applied!
+                  <CheckCircle2 className="w-3.5 h-3.5" /> {appliedCoupon} {couponBusy ? "checking…" : couponError ? "not applied" : "applied"} <button type="button" onClick={() => setAppliedCoupon(null)} className="underline ml-2">Remove</button>
                 </p>
               )}
 
+              {couponError && <p role="alert" className="text-xs text-red-700">{couponError}</p>}
               {/* Total Amount */}
               <div className="flex justify-between items-baseline pt-2 border-t border-slate-200">
                 <span className="text-sm font-extrabold text-slate-900">Total Amount</span>
@@ -273,6 +274,7 @@ export default function CartPage() {
               {/* Checkout Button */}
               <button
                 type="button"
+                disabled={couponBusy}
                 onClick={handleProceed}
                 className="w-full h-11 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
               >
@@ -307,6 +309,7 @@ export default function CartPage() {
 
       <CheckoutModal
         isOpen={isCheckoutOpen}
+        appliedCoupon={!couponError && !couponBusy ? appliedCoupon || undefined : undefined}
         cart={store.cart}
         user={store.user}
         onClose={() => setIsCheckoutOpen(false)}

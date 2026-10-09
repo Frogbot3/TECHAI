@@ -11,7 +11,9 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import AdminShell from "@/components/admin/AdminShell";
+import AdminShell, { type AdminTab } from "@/components/admin/AdminShell";
+import CouponManager from "@/components/admin/CouponManager";
+import CustomerDetails from "@/components/admin/CustomerDetails";
 import AdminOverview from "@/components/admin/AdminOverview";
 import {
   AdminImage,
@@ -58,9 +60,10 @@ export default function AdminDashboardPage() {
   const { notify, confirm: confirmAction } = useAdminFeedback();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<
-    "ANALYTICS" | "CAMPAIGNS" | "REFUNDS" | "PRODUCTS" | "ORDERS" | "CUSTOMERS"
-  >("ANALYTICS");
+  const [activeTab, setActiveTab] = useState<AdminTab>("ANALYTICS");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
+    null,
+  );
   const [productSearch, setProductSearch] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
@@ -973,7 +976,9 @@ export default function AdminDashboardPage() {
           busy={isRefreshing}
         />
       )}
-      {isLoading ? (
+      {activeTab === "COUPONS" ? (
+        <CouponManager />
+      ) : isLoading ? (
         <AdminLoading />
       ) : !lastSyncTime ? (
         <AdminEmpty
@@ -1230,33 +1235,20 @@ export default function AdminDashboardPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="bg-admin-surface  border border-admin-border rounded-xl overflow-hidden  space-y-4 p-4 sm:p-6"
+                className="admin-orders-section"
               >
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-admin-border pb-4">
                   <div>
                     <h3 className="text-sm font-medium text-admin-text flex items-center space-x-2">
                       <Truck className="w-4 h-4 text-admin-info" />
-                      <span>
-                        Customer Orders & One-Click PDF / Excel Downloads
-                      </span>
+                      <span>Customer orders</span>
                     </h3>
                     <p className="text-[11px] text-admin-muted mt-0.5">
-                      Download full Amazon/Flipkart-style Tax Invoice PDF or
-                      complete individual Excel file with address, payment ID,
-                      and itemized specs.
+                      Review each order, download invoices and update delivery
+                      status.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-                    <button
-                      type="button"
-                      onClick={exportAllOrdersToExcel}
-                      className="px-3.5 py-2 bg-admin-success-bg hover:bg-admin-success-bg text-admin-success border border-admin-border rounded-xl text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer shadow-sm flex-shrink-0"
-                      title="Export all database orders into single master Excel spreadsheet"
-                    >
-                      <FileSpreadsheet className="w-4 h-4 text-admin-success" />
-                      <span>Export All Orders (Excel)</span>
-                    </button>
-
                     <div className="relative max-w-xs w-full">
                       <Search className="absolute left-3 top-2.5 w-4 h-4 text-admin-muted" />
                       <input
@@ -1283,15 +1275,12 @@ export default function AdminDashboardPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="admin-order-list">
                     {filteredOrders.map((order) => (
-                      <div
-                        key={order.id}
-                        className="bg-admin-surface border border-admin-border p-5 rounded-xl space-y-4  hover:border-admin-border transition"
-                      >
+                      <div key={order.id} className="admin-order-card">
                         {/* Order Header Row */}
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-admin-border pb-3 text-xs">
-                          <div className="space-y-0.5">
+                        <div className="admin-order-heading">
+                          <div className="admin-order-identity">
                             <span className="text-admin-muted">Order ID: </span>
                             <span className="font-medium font-mono text-admin-info text-sm">
                               {order.id}
@@ -1353,10 +1342,10 @@ export default function AdminDashboardPage() {
                         </div>
 
                         {/* Customer Info & Order Breakdown Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div className="admin-order-body grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
                           {/* Customer & Address Details */}
-                          <div className="space-y-2 bg-admin-surface p-4 rounded-xl border border-admin-border">
-                            <p className="font-medium text-admin-text text-sm flex items-center justify-between">
+                          <div className="space-y-2 min-w-0">
+                            <p className="font-medium text-admin-text text-sm flex flex-wrap gap-2 items-center justify-between">
                               <span>{order.shippingAddress.fullName}</span>
                               <span className="text-[11px] font-normal text-admin-muted">
                                 Payment:{" "}
@@ -1395,7 +1384,7 @@ export default function AdminDashboardPage() {
                           </div>
 
                           {/* Ordered Items Breakdown */}
-                          <div className="space-y-2 bg-admin-surface p-4 rounded-xl border border-admin-border">
+                          <div className="space-y-2 min-w-0">
                             <p className="font-medium text-admin-text text-xs  border-b border-admin-border pb-1">
                               Ordered Items ({order.items.length})
                             </p>
@@ -1405,7 +1394,7 @@ export default function AdminDashboardPage() {
                                   key={idx}
                                   className="flex justify-between items-center text-xs text-admin-text"
                                 >
-                                  <span className="truncate max-w-[200px]">
+                                  <span className="min-w-0 pr-3">
                                     {item.product.title} (x{item.quantity})
                                   </span>
                                   <span className="font-medium text-admin-success">
@@ -1427,7 +1416,7 @@ export default function AdminDashboardPage() {
                         </div>
 
                         {/* Quick Status Action Buttons */}
-                        <div className="flex flex-wrap items-center justify-between pt-1 text-xs border-t border-admin-border">
+                        <div className="admin-order-footer">
                           <div className="text-[11px] text-admin-muted space-x-2">
                             <span>
                               Tracking Number:{" "}
@@ -1527,12 +1516,13 @@ export default function AdminDashboardPage() {
                         <th className="py-3.5 px-4">Contact Phone</th>
                         <th className="py-3.5 px-4">Email Address</th>
                         <th className="py-3.5 px-4">Role</th>
+                        <th className="py-3.5 px-4">Details</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-admin-border">
                       {filteredCustomers.length === 0 && (
                         <tr>
-                          <td colSpan={4}>
+                          <td colSpan={5}>
                             <AdminEmpty
                               title="No customers found"
                               description="Try a different name, email or phone number."
@@ -1566,6 +1556,15 @@ export default function AdminDashboardPage() {
                               {user.role || "customer"}
                             </span>
                           </td>
+                          <td className="py-3 px-4">
+                            <button
+                              className="admin-button whitespace-nowrap"
+                              aria-label={`View details for ${user.name}`}
+                              onClick={() => setSelectedCustomerId(user.id)}
+                            >
+                              View details
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1575,6 +1574,14 @@ export default function AdminDashboardPage() {
             )}
           </AnimatePresence>
         </>
+      )}
+
+      {selectedCustomerId && (
+        <CustomerDetails
+          key={selectedCustomerId}
+          customerId={selectedCustomerId}
+          onClose={() => setSelectedCustomerId(null)}
+        />
       )}
 
       {/* FULL PRODUCT ADD / EDIT MODAL WITH 7-IMAGE UPLOAD, SPECS, & HERO BANNER SETTINGS */}
