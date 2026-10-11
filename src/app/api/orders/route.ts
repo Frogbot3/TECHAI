@@ -11,6 +11,8 @@ import { CartItem } from "@/lib/types";
 import { databaseErrorResponse } from "@/lib/database-errors";
 import { pagination, escapeRegex } from "@/lib/query";
 import { randomUUID } from "crypto";
+import { standardShippingFee } from "@/lib/checkout";
+import { validCoordinates } from "@/lib/google-address";
 
 const createOrderId = () => `TECHAI-ORD-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
 const createTrackingNumber = () => `TA-${randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
@@ -47,7 +49,8 @@ export async function POST(req: Request) {
       shippingAddress,
       paymentMethod = "COD",
       discountCode,
-      deliveryType = "standard",
+      saveAddress = true,
+      savedAddressIndex,
       checkoutId,
     } = body;
 
@@ -61,10 +64,6 @@ export async function POST(req: Request) {
 
     if (!["UPI", "Card", "NetBanking", "COD"].includes(paymentMethod)) {
       return NextResponse.json({ success: false, message: "Unsupported payment method." }, { status: 400 });
-    }
-
-    if (!["standard", "express"].includes(deliveryType)) {
-      return NextResponse.json({ success: false, message: "Unsupported delivery option." }, { status: 400 });
     }
 
     const session = await getSessionFromCookie(CUSTOMER_SESSION_COOKIE);
@@ -175,7 +174,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, message: error instanceof Error ? error.message : "Unable to apply coupon." }, { status: 400 });
       }
     }
-    const shippingFee = deliveryType === "express" ? 99 : subtotal > 499 ? 0 : 49;
+    const shippingFee = standardShippingFee(subtotal);
     const finalAmount = Math.max(0, subtotal - discountAmount + shippingFee);
     if (finalAmount <= 0) {
       return NextResponse.json({ success: false, message: "The order amount must be greater than zero." }, { status: 400 });
@@ -219,13 +218,17 @@ export async function POST(req: Request) {
       items: formattedItems,
       shippingAddress: {
         fullName: shippingAddress.fullName,
-        phone: customerPhone,
-        email: customerEmail,
+        phone: shippingAddress.phone || customerPhone,
+        email: shippingAddress.email || "",
         street: shippingAddress.street,
         city: shippingAddress.city,
         state: shippingAddress.state,
         pincode: shippingAddress.pincode,
         landmark: shippingAddress.landmark || "",
+        houseNumber: typeof shippingAddress.houseNumber === "string" ? shippingAddress.houseNumber : undefined,
+        deliveryInstructions: typeof shippingAddress.deliveryInstructions === "string" ? shippingAddress.deliveryInstructions : undefined,
+        country: "India",
+        coordinates: validCoordinates(shippingAddress.coordinates) ? shippingAddress.coordinates : undefined,
       },
       checkoutId: safeCheckoutId,
       totalAmount: subtotal,
@@ -253,21 +256,21 @@ export async function POST(req: Request) {
       ],
     });
 
-    // Save address to user profile
-    if (session.id) {
-      const userQuery = { _id: session.id };
-
-      await User.findOneAndUpdate(
-        userQuery,
-        {
-          $set: {
-            name: customerName,
-            lastLoginAt: new Date(),
-          },
-          $addToSet: { addresses: shippingAddress },
-        },
-        { upsert: false }
-      ).catch(() => null);
+    // Respect the checkbox. Persist only the sanitized delivery snapshot, never request operators.
+    if (saveAddress === true && session.id) {
+      const snapshot = newOrder.shippingAddress;
+      const index = Number.isInteger(savedAddressIndex) && savedAddressIndex >= 0 && savedAddressIndex < 100 ? savedAddressIndex : undefined;
+      if (index !== undefined) {
+        await User.findOneAndUpdate(
+          { _id: session.id, ["addresses." + index]: { $exists: true } },
+          { $set: { ["addresses." + index]: snapshot } },
+          { upsert: false }
+        ).catch(() => null);
+      } else {
+        await User.findOneAndUpdate(
+          { _id: session.id }, { $addToSet: { addresses: snapshot } }, { upsert: false }
+        ).catch(() => null);
+      }
     }
 
     decrementedProducts = [];

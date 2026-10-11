@@ -149,6 +149,8 @@ export function useTechAiStore(initial?: { products: Product[]; campaigns: HeroC
     }
 
     const loadedCart = getStorage<CartItem[]>(CART_KEY, []).map(normalizeCartItem);
+    // Persist the normalized cart too, dropping legacy delivery-selection metadata.
+    setStorage(CART_KEY, loadedCart);
     const loadedWishlist = normalizeWishlist(getStorage<unknown>(WISHLIST_KEY, []));
     const loadedUser = getStorage<User | null>(USER_KEY, null);
     const rawOrders = loadedUser ? getStorage<Order[]>(ordersKeyFor(loadedUser.id)!, []).map(toClientOrder) : [];
@@ -339,7 +341,8 @@ export function useTechAiStore(initial?: { products: Product[]; campaigns: HeroC
     discountCode?: string,
     paymentDetails?: PaymentDetails,
     checkoutId?: string,
-    deliveryType: "standard" | "express" = "standard"
+    saveAddress = true,
+    savedAddressIndex?: number
   ): Promise<Order> => {
     const response = await fetch("/api/orders", {
       method: "POST",
@@ -349,7 +352,8 @@ export function useTechAiStore(initial?: { products: Product[]; campaigns: HeroC
         shippingAddress,
         paymentMethod,
         discountCode,
-        deliveryType,
+        saveAddress,
+        savedAddressIndex,
         checkoutId,
         paymentDetails,
       }),
@@ -361,7 +365,10 @@ export function useTechAiStore(initial?: { products: Product[]; campaigns: HeroC
 
     const savedOrder = toClientOrder(data.order);
     // Reflect the just-saved delivery address without waiting for a new login.
-    if (user) setAuthenticatedUser({ ...user, addresses: [...(user.addresses || []), savedOrder.shippingAddress] });
+    if (user && saveAddress) {
+      // Reload server-owned addresses, including edits, without inventing a successful save.
+      await refreshSession();
+    }
     const updatedOrders = [savedOrder, ...orders.filter((order) => order.id !== savedOrder.id)];
     updateOrders(updatedOrders);
 

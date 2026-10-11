@@ -63,10 +63,14 @@ test('order creation uses trusted prices and rejects inactive coupons before sto
     '@/models/Order': { create: async data => { saved = data; return data; } },
   })('src/app/api/orders/route.ts');
   const body = { items: [{ product: { id: 'p1', price: 1 }, quantity: 2 }], shippingAddress: { fullName: 'QA', street: 'Test', city: 'Test', state: 'Test', pincode: '560001' }, discountCode: 'SAVE20', discountAmount: 1999, paymentMethod: 'COD' };
+  Object.assign(body.shippingAddress, { houseNumber: 'Flat 7', country: 'India', deliveryInstructions: 'QA gate', coordinates: { lat: 12.97, lng: 77.59 } });
   assert.equal((await POST(request(body))).status, 200);
   assert.equal(saved.discountAmount, 400);
   assert.equal(saved.finalAmount, 1600);
   assert.equal(saved.discountCode, 'SAVE20');
+  assert.equal(saved.shippingAddress.houseNumber, 'Flat 7');
+  assert.equal(saved.shippingAddress.country, 'India');
+  assert.deepEqual(saved.shippingAddress.coordinates, body.shippingAddress.coordinates);
   assert.equal(stockWrites, 1);
   coupon = { ...coupon, published: false };
   assert.equal((await POST(request(body))).status, 400);

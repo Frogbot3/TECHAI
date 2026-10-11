@@ -27,6 +27,10 @@ export interface IUser extends Document {
     state: string;
     pincode: string;
     landmark?: string;
+    houseNumber?: string;
+    deliveryInstructions?: string;
+    country?: string;
+    coordinates?: { lat: number; lng: number };
   }[];
   wishlist: string[];
   role: "customer" | "admin";
@@ -45,6 +49,10 @@ const AddressSchema = new Schema(
     state: String,
     pincode: String,
     landmark: String,
+    houseNumber: String,
+    deliveryInstructions: String,
+    country: String,
+    coordinates: { type: new Schema({ lat: { type: Number, min: -90, max: 90 }, lng: { type: Number, min: -180, max: 180 } }, { _id: false }), default: undefined },
   },
   { _id: false }
 );

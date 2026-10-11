@@ -139,6 +139,9 @@ export function toClientOrder(value: any): Order {
     shippingAddress: {
       houseNumber: order.shippingAddress?.houseNumber || undefined,
       deliveryInstructions: order.shippingAddress?.deliveryInstructions || undefined,
+      country: order.shippingAddress?.country || undefined,
+      coordinates: order.shippingAddress?.coordinates && Number.isFinite(order.shippingAddress.coordinates.lat) && Number.isFinite(order.shippingAddress.coordinates.lng)
+        ? { lat: order.shippingAddress.coordinates.lat, lng: order.shippingAddress.coordinates.lng } : undefined,
       fullName: order.shippingAddress?.fullName || order.userName || "Customer",
       phone: order.shippingAddress?.phone || order.userPhone || "",
       email: order.shippingAddress?.email || order.userEmail || "",

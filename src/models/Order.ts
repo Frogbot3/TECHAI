@@ -29,6 +29,10 @@ export interface IOrder extends Document {
     state: string;
     pincode: string;
     landmark?: string;
+    houseNumber?: string;
+    deliveryInstructions?: string;
+    country?: string;
+    coordinates?: { lat: number; lng: number };
   };
   totalAmount: number;
   discountAmount: number;
@@ -97,6 +101,10 @@ const OrderSchema = new Schema<IOrder>(
       state: { type: String, default: "" },
       pincode: { type: String, default: "" },
       landmark: { type: String, default: "" },
+      houseNumber: String,
+      deliveryInstructions: String,
+      country: String,
+      coordinates: { type: new Schema({ lat: { type: Number, min: -90, max: 90 }, lng: { type: Number, min: -180, max: 180 } }, { _id: false }), default: undefined },
     },
     totalAmount: { type: Number, required: true },
     discountCode: { type: String, default: "" },

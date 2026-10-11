@@ -104,6 +104,7 @@ export interface CartItem {
 }
 
 export interface ShippingAddress {
+  country?: string;
   fullName: string;
   phone: string;
   email: string;

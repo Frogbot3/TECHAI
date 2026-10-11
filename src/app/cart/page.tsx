@@ -1,5 +1,7 @@
 "use client";
 
+import { standardShippingFee } from "@/lib/checkout";
+
 import { useCouponPreview } from "@/lib/useCouponPreview";
 import React, { useState } from "react";
 import Link from "next/link";
@@ -38,7 +40,7 @@ export default function CartPage() {
     0
   );
   const totalSavings = totalMrp - subtotal;
-  const shippingFee = subtotal > 499 || subtotal === 0 ? 0 : 49;
+  const shippingFee = standardShippingFee(subtotal);
   const { discount: discountAmount, error: couponError, busy: couponBusy, retry: retryCoupon } = useCouponPreview(appliedCoupon, subtotal);
   const finalTotal = subtotal - discountAmount + shippingFee;
 

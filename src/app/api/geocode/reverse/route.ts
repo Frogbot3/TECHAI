@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Invalid coordinates format" }, { status: 400 });
     }
 
-    const googleApiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
 
-    // 1. Google Reverse Geocode if key configured
+    // Legacy server-only provider. Never send the HTTP-referrer restricted browser key to REST.
     if (googleApiKey) {
       try {
         const googleRes = await fetch(
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
           }
         }
       } catch (err) {
-        console.warn("Google Reverse Geocode failed, falling back to Nominatim:", err);
+        // Try the existing fallback without logging the request URL or location.
       }
     }
 
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
         address: {
           formattedAddress: data.display_name || `${street}, ${area}, ${city}, ${state} ${pincode}`,
           houseNumber,
-          street: street || (area ? `${area} Street` : "Main Road"),
+          street: street || area,
           area,
           city: city || area,
           state,
@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ error: "Unable to reverse geocode coordinates" }, { status: 404 });
   } catch (error) {
-    console.error("Reverse geocoding error:", error);
+    // Do not log customer coordinates or upstream request URLs.
     return NextResponse.json({ error: "Failed to reverse geocode location" }, { status: 500 });
   }
 }

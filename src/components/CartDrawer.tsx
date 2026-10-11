@@ -1,4 +1,6 @@
 "use client";
+
+import { standardShippingFee } from "@/lib/checkout";
 import { useCouponPreview } from "@/lib/useCouponPreview";
 import ProductImage from "./ProductImage";
 
@@ -32,7 +34,7 @@ export default function CartDrawer({
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const { discount, error: couponError, busy: couponBusy, retry: retryCoupon } = useCouponPreview(appliedCoupon, subtotal, isOpen);
   if (!isOpen) return null;
-  const shippingFee = subtotal > 499 || cart.length === 0 ? 0 : 49;
+  const shippingFee = standardShippingFee(subtotal);
   const finalTotal = subtotal - discount + shippingFee;
 
   const handleApplyCoupon = () => {

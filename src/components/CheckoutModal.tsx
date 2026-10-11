@@ -8,7 +8,9 @@ import confetti from "canvas-confetti";
 import { CartItem, ShippingAddress, Order, OrderStatus } from "@/lib/types";
 import { loadRazorpayScript } from "@/lib/razorpay-client";
 import { generateOrderInvoice } from "@/lib/generateInvoice";
-import TechAiLogo from "@/components/TechAiLogo";
+import CheckoutAddressFields from "./CheckoutAddressFields";
+import { checkoutAddress, confirmedAddress, validateCheckoutAddress, standardShippingFee, clearLegacyCheckoutKeys } from "@/lib/checkout";
+import { checkPincode } from "@/lib/storefront-config";
 import {
   X,
   MapPin,
@@ -20,13 +22,7 @@ import {
   Loader2,
   ShieldCheck,
   Package,
-  ArrowRight,
-  Sparkles,
-  User as UserIcon,
-  Phone as PhoneIcon,
-  Mail as MailIcon,
   Check,
-  ChevronRight,
   Truck,
   FileText,
   Lock,
@@ -40,7 +36,6 @@ import {
   RefreshCw,
   Clock,
   ArrowLeft,
-  Navigation
 } from "lucide-react";
 import AddressAutocomplete, { AddressPayload } from "./AddressAutocomplete";
 
@@ -56,18 +51,13 @@ interface CheckoutModalProps {
     discountCode?: string,
     paymentDetails?: any,
     checkoutId?: string,
-    deliveryType?: "standard" | "express"
+    saveAddress?: boolean,
+    savedAddressIndex?: number
   ) => Promise<Order> | Order;
   onPaymentSuccess: () => Promise<void> | void;
   onOpenOrderTracking: (orderId: string) => void;
 }
 
-const INDIAN_STATES = [
-  "Andhra Pradesh", "Assam", "Bihar", "Delhi NCR", "Goa", "Gujarat", "Haryana",
-  "Himachal Pradesh", "Jammu & Kashmir", "Jharkhand", "Karnataka", "Kerala",
-  "Madhya Pradesh", "Maharashtra", "Odisha", "Punjab", "Rajasthan",
-  "Tamil Nadu", "Telangana", "Uttar Pradesh", "Uttarakhand", "West Bengal"
-];
 
 const ORDER_STAGES: { status: OrderStatus; label: string; icon: any }[] = [
   { status: "Placed", label: "Order Placed", icon: CheckCircle2 },
@@ -90,25 +80,20 @@ export default function CheckoutModal({
   const router = useRouter();
   const [step, setStep] = useState<"ADDRESS" | "PAYMENT" | "PROCESSING" | "SUCCESS">("ADDRESS");
   const [paymentMethod, setPaymentMethod] = useState<Order["paymentMethod"]>("UPI");
-  const [deliveryType, setDeliveryType] = useState<"standard" | "express">("standard");
+
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
 
   // Address State
-  const [address, setAddress] = useState<ShippingAddress>({
-    fullName: "",
-    phone: "",
-    email: "",
-    houseNumber: "",
-    street: "",
-    city: "",
-    state: "Karnataka",
-    pincode: "",
-    landmark: "",
-    deliveryInstructions: "",
-    coordinates: undefined,
-  });
+  const [address, setAddress] = useState<ShippingAddress>(() => checkoutAddress());
+  const [addressMode, setAddressMode] = useState<"summary" | "choose" | "form">("form");
+  const [savedAddressIndex, setSavedAddressIndex] = useState<number | undefined>();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const addressSubmitting = useRef(false);
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [addressRevision, setAddressRevision] = useState(0);
+  const addressOwner = useRef<string | null>(null);
   const [saveAddressForFuture, setSaveAddressForFuture] = useState(true);
   const [validationError, setValidationError] = useState("");
   const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
@@ -120,35 +105,53 @@ export default function CheckoutModal({
 
   const checkoutIdRef = useRef("");
   const cartSignature = cart.map((item) => `${item.product.id}:${item.quantity}`).sort().join("|");
-  const checkoutStorageKey = `techai-checkout-id:${cartSignature}:${appliedCoupon || ""}:${deliveryType}`;
+  const checkoutStorageKey = `techai-checkout-standard-v2:${user?.id || "guest"}:${cartSignature}:${appliedCoupon || ""}`;
 
   useEffect(() => {
     setPendingOrder(null);
     setPendingPaymentResponse(null);
   }, [checkoutStorageKey]);
 
-  // Sync real user profile details dynamically
+  // Autofill only at checkout entry/account change, never on a profile refresh.
   useEffect(() => {
-    if (user) {
-      const existingAddr = user.addresses && user.addresses.length > 0 ? user.addresses[0] : null;
-      setAddress({
-        fullName: user.name || existingAddr?.fullName || "",
-        phone: user.phone || existingAddr?.phone || "",
-        email: user.email || existingAddr?.email || "",
-        houseNumber: existingAddr?.houseNumber || "",
-        street: existingAddr?.street || "",
-        city: existingAddr?.city || "",
-        state: existingAddr?.state || "Karnataka",
-        pincode: existingAddr?.pincode || "",
-        landmark: existingAddr?.landmark || "",
-        deliveryInstructions: existingAddr?.deliveryInstructions || "",
-        coordinates: existingAddr?.coordinates,
-      });
-    }
+    if (!isOpen) { addressOwner.current = null; return; }
+    const owner = user?.id || "guest";
+    if (addressOwner.current === owner) return;
+    addressOwner.current = owner;
+    const saved = user?.addresses?.[0];
+    setAddress(checkoutAddress(saved, user));
+    setSavedAddressIndex(saved ? 0 : undefined);
+    setAddressMode(saved ? "summary" : "form");
+    setDetailsOpen(Boolean(saved?.landmark || saved?.deliveryInstructions));
+    setFieldErrors({}); setValidationError(""); setStep("ADDRESS");
+    setAddressRevision(n => n + 1);
   }, [user, isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.focus();
+    // Follow the visual viewport when a phone keyboard reduces the usable height.
+    const viewport = window.visualViewport;
+    const resize = () => {
+      const root = dialogRef.current?.parentElement;
+      if (root && viewport) { root.style.height = viewport.height + "px"; root.style.top = viewport.offsetTop + "px"; }
+    };
+    resize(); viewport?.addEventListener("resize", resize); viewport?.addEventListener("scroll", resize);
+    return () => {
+      document.body.style.overflow = overflow;
+      viewport?.removeEventListener("resize", resize); viewport?.removeEventListener("scroll", resize);
+      previous?.focus();
+    };
+  }, [isOpen]);
+
+  useEffect(() => { addressSubmitting.current = false; }, [step]);
+
+  useEffect(() => {
     if (!isOpen || !cartSignature || typeof window === "undefined") return;
+    clearLegacyCheckoutKeys(window.sessionStorage);
     const existingCheckoutId = window.sessionStorage.getItem(checkoutStorageKey);
     const checkoutId = existingCheckoutId || (window.crypto?.randomUUID?.() || `checkout-${Date.now()}`);
     if (!existingCheckoutId) window.sessionStorage.setItem(checkoutStorageKey, checkoutId);
@@ -160,19 +163,13 @@ export default function CheckoutModal({
   const subtotal = cart.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
   const { discount, error: couponError, busy: couponBusy } = useCouponPreview(appliedCoupon, subtotal, isOpen);
   if (!isOpen) return null;
-  const shippingFee = deliveryType === "express" ? 99 : (subtotal > 499 ? 0 : 49);
+  const shippingFee = standardShippingFee(subtotal);
   const finalTotal = Math.max(0, subtotal - discount + shippingFee);
+  const serviceability = checkPincode(address.pincode);
 
   const handleAutocompleteSelect = (data: AddressPayload) => {
-    setAddress((prev) => ({
-      ...prev,
-      houseNumber: data.houseNumber || prev.houseNumber,
-      street: [data.houseNumber, data.street || data.area].filter(Boolean).join(", ") || data.street || data.area || prev.street,
-      city: data.city || prev.city,
-      state: data.state || prev.state,
-      pincode: data.pincode || prev.pincode,
-      coordinates: data.lat && data.lng ? { lat: data.lat, lng: data.lng } : prev.coordinates,
-    }));
+    setAddress(prev => confirmedAddress(prev, data));
+    setAddressRevision(n => n + 1);
 
     setFieldErrors((prev) => {
       const updated = { ...prev };
@@ -191,38 +188,19 @@ export default function CheckoutModal({
       setValidationError("Please sign in before placing an order so it is saved to the correct account.");
       return;
     }
-    const errors: Record<string, string> = {};
-
-    if (!address.fullName.trim()) {
-      errors.fullName = "Please enter recipient's full name";
-    }
-    const cleanPhone = address.phone.replace(/\D/g, "");
-    if (cleanPhone.length !== 10) {
-      errors.phone = "Please enter a valid 10-digit Indian mobile number (e.g. 9876543210)";
-    }
-    if (!address.houseNumber?.trim() && !address.street.trim()) {
-      errors.houseNumber = "House / Flat / Building number is required";
-    }
-    if (!address.street.trim()) {
-      errors.street = "Street and locality are required";
-    }
-    if (!address.city.trim()) {
-      errors.city = "City is required";
-    }
-    if (!address.state.trim()) {
-      errors.state = "State is required";
-    }
-    const cleanPin = address.pincode.replace(/\D/g, "");
-    if (cleanPin.length !== 6) {
-      errors.pincode = "Please enter a valid 6-digit postal PIN code";
-    }
+    if (addressSubmitting.current || step !== "ADDRESS") return;
+    const errors = validateCheckoutAddress(address);
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      setValidationError("Please fix the required address fields highlighted in red below.");
+      setValidationError("Check the highlighted address fields.");
+      setAddressMode("form");
+      requestAnimationFrame(() => document.getElementById(`checkout-${Object.keys(errors)[0]}`)?.focus());
       return;
     }
 
+    if (couponBusy || couponError) { setValidationError(couponError || "Checking your coupon…"); return; }
+    addressSubmitting.current = true;
     setFieldErrors({});
     setStep("PAYMENT");
   };
@@ -293,7 +271,8 @@ export default function CheckoutModal({
           appliedCoupon || undefined,
           { provider: paymentMethod === "COD" ? "COD" : "Razorpay" },
           checkoutIdRef.current,
-          deliveryType
+          saveAddressForFuture,
+          savedAddressIndex
         )
       );
       if (!pendingOrder) setPendingOrder(order);
@@ -479,450 +458,79 @@ export default function CheckoutModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto selection:bg-cyan-500 selection:text-slate-950">
+      <div className="fixed inset-x-0 top-0 h-[100dvh] z-50 flex items-center justify-center bg-slate-950/50 p-0 sm:p-6">
         <motion.div
           initial={{ opacity: 0, scale: 0.97, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97, y: 12 }}
           transition={{ duration: 0.2 }}
-          className="bg-white w-full max-w-3xl rounded-3xl shadow-xl border border-slate-200/80 overflow-hidden relative my-auto flex flex-col max-h-[92vh]"
+          ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="checkout-title" tabIndex={-1}
+          onKeyDown={event => {
+            if (event.defaultPrevented) return;
+            // Let Google's fullscreen suggestions handle their own Escape key.
+            if (event.key === "Escape" && (event.target as HTMLElement).closest("gmp-place-autocomplete")) return;
+            if (event.key === "Escape" && step !== "PROCESSING") { event.stopPropagation(); onClose(); }
+            if (event.key !== "Tab") return;
+            const elements = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), input, select, textarea, summary, a[href], gmp-place-autocomplete, [tabindex="0"]')).filter(el => el.getClientRects().length > 0);
+            const first = elements[0], last = elements[elements.length - 1];
+            if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last?.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+          }}
+          className="bg-white text-slate-900 w-full max-w-2xl h-full sm:h-auto sm:max-h-full sm:rounded-xl shadow-xl overflow-hidden relative flex flex-col outline-none"
         >
-          {/* Header: Clean, modern white header with subtle border & TECH AI branding */}
-          <div className="px-5 sm:px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center space-x-3">
-              <TechAiLogo size="sm" />
-              <span className="h-4 w-px bg-slate-200" />
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                {step === "SUCCESS"
-                  ? "Order Confirmation"
-                  : step === "PAYMENT"
-                  ? "Secure Payment"
-                  : "Checkout"}
-              </span>
+          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 sm:px-7">
+            <div>
+              <h2 id="checkout-title" className="text-lg font-semibold tracking-tight">{step === "ADDRESS" ? "Delivery address" : step === "SUCCESS" ? "Order confirmation" : "Payment"}</h2>
+              {step !== "SUCCESS" && <nav aria-label="Checkout progress" className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                <button type="button" disabled={step === "PROCESSING"} onClick={() => setStep("ADDRESS")} aria-current={step === "ADDRESS" ? "step" : undefined} className={step === "ADDRESS" ? "text-teal-800 font-medium" : "hover:text-teal-800"}>1 Address</button>
+                <span aria-hidden="true">→</span><span aria-current={step === "PAYMENT" ? "step" : undefined} className={step === "PAYMENT" ? "text-teal-800 font-medium" : ""}>2 Payment</span>
+              </nav>}
             </div>
-
-            {step !== "PROCESSING" && (
-              <button
-                type="button"
-                onClick={onClose}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-
-          {/* Stepper Progress Bar (Only during checkout steps) */}
-          {step !== "SUCCESS" && step !== "PROCESSING" && (
-            <div className="bg-slate-50/70 border-b border-slate-100 px-6 py-3 flex items-center justify-center gap-3 sm:gap-6 flex-shrink-0 text-xs">
-              <button
-                type="button"
-                onClick={() => setStep("ADDRESS")}
-                className={`flex items-center gap-2 font-bold transition-colors cursor-pointer ${
-                  step === "ADDRESS" ? "text-cyan-700" : "text-emerald-700"
-                }`}
-              >
-                <span
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black transition-all ${
-                    step === "ADDRESS"
-                      ? "bg-cyan-600 text-white shadow-xs"
-                      : "bg-emerald-100 text-emerald-800"
-                  }`}
-                >
-                  {step === "PAYMENT" ? <Check className="w-3.5 h-3.5" /> : "1"}
-                </span>
-                <span>Delivery Address</span>
-              </button>
-
-              <div className={`w-8 sm:w-16 h-0.5 rounded-full transition-colors ${step === "PAYMENT" ? "bg-cyan-600" : "bg-slate-200"}`} />
-
-              <div
-                className={`flex items-center gap-2 font-bold transition-colors ${
-                  step === "PAYMENT" ? "text-cyan-700" : "text-slate-400"
-                }`}
-              >
-                <span
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black transition-all ${
-                    step === "PAYMENT"
-                      ? "bg-cyan-600 text-white ring-4 ring-cyan-100 shadow-xs"
-                      : "bg-slate-200 text-slate-500"
-                  }`}
-                >
-                  2
-                </span>
-                <span>Payment Option</span>
-              </div>
-            </div>
-          )}
+            {step !== "PROCESSING" && <button type="button" onClick={onClose} aria-label="Close checkout" className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 focus-visible:outline-teal-700"><X size={20} /></button>}
+          </header>
 
           {/* Main Scrollable Content */}
-          <div className="p-5 sm:p-7 overflow-y-auto flex-1 text-xs">
-            {/* ================= STEP 1: DELIVERY ADDRESS ================= */}
+          <div className="min-h-0 p-5 sm:p-7 overflow-y-auto overscroll-contain flex-1 text-sm">
             {step === "ADDRESS" && (
-              <form onSubmit={handleAddressSubmit} className="space-y-4">
-                {user ? (
-                  <div className="bg-cyan-50/60 border border-cyan-100 rounded-2xl p-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-cyan-600 text-white font-black flex items-center justify-center text-xs shadow-xs">
-                        {user.name ? user.name.charAt(0).toUpperCase() : "U"}
-                      </div>
-                      <div>
-                        <p className="font-extrabold text-slate-900 text-xs">Delivering for {user.name || "Customer"}</p>
-                        <p className="text-[11px] text-slate-500">{user.email || user.phone}</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold text-cyan-800 bg-white px-2.5 py-1 rounded-full border border-cyan-200">
-                      Auto-Filled
-                    </span>
-                  </div>
-                ) : null}
-
-                {/* Items Summary Strip */}
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                    <span className="flex items-center gap-1.5">
-                      <Package className="w-3.5 h-3.5 text-cyan-600" />
-                      <span>Items in Cart ({cart.reduce((sum, i) => sum + i.quantity, 0)})</span>
-                    </span>
-                    <span className="text-slate-900 font-extrabold">₹{subtotal.toLocaleString("en-IN")}</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1">
-                    {cart.map((item) => (
-                      <div
-                        key={item.product.id}
-                        className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 flex-shrink-0"
-                      >
-                        <img
-                          src={item.product.normalizedImage || item.product.image}
-                          alt={item.product.title}
-                          className="w-7 h-7 object-contain rounded bg-slate-50"
-                        />
-                        <div className="text-[10px] max-w-[130px] truncate">
-                          <p className="font-bold text-slate-800 truncate">{item.product.title}</p>
-                          <p className="text-slate-500">Qty: {item.quantity} × ₹{item.product.price.toLocaleString()}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {validationError && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-xl flex items-center gap-2">
-                    <Info className="w-4 h-4 text-rose-600 flex-shrink-0" />
-                    <span>{validationError}</span>
-                  </div>
-                )}
-
-                {/* 1. Address Autocomplete & GPS Detection */}
-                <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-3.5 space-y-2">
-                  <AddressAutocomplete
-                    onAddressSelect={handleAutocompleteSelect}
-                    currentAddressString={address.street}
-                    selectedCoordinates={address.coordinates}
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 pt-1 pb-0.5">
-                  <div className="h-px bg-slate-200 flex-1" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Delivery Address Details
-                  </span>
-                  <div className="h-px bg-slate-200 flex-1" />
-                </div>
-
-                {/* Form fields with clear inline validation */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className="space-y-1">
-                    <label className="text-xs font-extrabold text-slate-700 flex items-center space-x-1">
-                      <UserIcon className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Recipient Full Name *</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={address.fullName}
-                      onChange={(e) => {
-                        setAddress({ ...address, fullName: e.target.value });
-                        if (fieldErrors.fullName) setFieldErrors({ ...fieldErrors, fullName: "" });
-                      }}
-                      placeholder="e.g. Rahul Sharma"
-                      className={`w-full px-3.5 py-2.5 text-xs bg-slate-50 border rounded-xl focus:bg-white focus:ring-2 focus:outline-none transition font-medium ${
-                        fieldErrors.fullName ? "border-rose-400 focus:ring-rose-500 bg-rose-50/30" : "border-slate-200 focus:ring-cyan-500"
-                      }`}
-                    />
-                    {fieldErrors.fullName && (
-                      <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>{fieldErrors.fullName}</span>
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-extrabold text-slate-700 flex items-center space-x-1">
-                      <PhoneIcon className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Mobile Phone Number *</span>
-                    </label>
-                    <div className="flex">
-                      <span className="flex items-center px-3 bg-slate-100 border border-r-0 border-slate-200 text-slate-700 text-xs font-bold rounded-l-xl">
-                        +91
-                      </span>
-                      <input
-                        type="tel"
-                        required
-                        maxLength={10}
-                        value={address.phone}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, "");
-                          setAddress({ ...address, phone: val });
-                          if (fieldErrors.phone) setFieldErrors({ ...fieldErrors, phone: "" });
-                        }}
-                        placeholder="10-digit mobile number"
-                        className={`w-full px-3.5 py-2.5 text-xs bg-slate-50 border rounded-r-xl focus:bg-white focus:ring-2 focus:outline-none transition font-medium font-mono ${
-                          fieldErrors.phone ? "border-rose-400 focus:ring-rose-500 bg-rose-50/30" : "border-slate-200 focus:ring-cyan-500"
-                        }`}
-                      />
-                    </div>
-                    {fieldErrors.phone && (
-                      <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>{fieldErrors.phone}</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-extrabold text-slate-700 flex items-center space-x-1">
-                    <MailIcon className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Email Address (Optional — for order updates & PDF invoice)</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={address.email}
-                    onChange={(e) => setAddress({ ...address, email: e.target.value })}
-                    placeholder="you@example.com"
-                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition font-medium"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className="space-y-1">
-                    <label className="text-xs font-extrabold text-slate-700">
-                      House / Flat / Building No. *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={address.houseNumber || ""}
-                      onChange={(e) => {
-                        setAddress({ ...address, houseNumber: e.target.value });
-                        if (fieldErrors.houseNumber) setFieldErrors({ ...fieldErrors, houseNumber: "" });
-                      }}
-                      placeholder="e.g. Flat 402, Sunshine Heights"
-                      className={`w-full px-3.5 py-2.5 text-xs bg-slate-50 border rounded-xl focus:bg-white focus:ring-2 focus:outline-none transition font-medium ${
-                        fieldErrors.houseNumber ? "border-rose-400 focus:ring-rose-500 bg-rose-50/30" : "border-slate-200 focus:ring-cyan-500"
-                      }`}
-                    />
-                    {fieldErrors.houseNumber && (
-                      <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>{fieldErrors.houseNumber}</span>
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-extrabold text-slate-700">
-                      Street & Area / Locality *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={address.street}
-                      onChange={(e) => {
-                        setAddress({ ...address, street: e.target.value });
-                        if (fieldErrors.street) setFieldErrors({ ...fieldErrors, street: "" });
-                      }}
-                      placeholder="e.g. 100 Feet Road, Indiranagar"
-                      className={`w-full px-3.5 py-2.5 text-xs bg-slate-50 border rounded-xl focus:bg-white focus:ring-2 focus:outline-none transition font-medium ${
-                        fieldErrors.street ? "border-rose-400 focus:ring-rose-500 bg-rose-50/30" : "border-slate-200 focus:ring-cyan-500"
-                      }`}
-                    />
-                    {fieldErrors.street && (
-                      <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>{fieldErrors.street}</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-extrabold text-slate-700">City *</label>
-                    <input
-                      type="text"
-                      required
-                      value={address.city}
-                      onChange={(e) => {
-                        setAddress({ ...address, city: e.target.value });
-                        if (fieldErrors.city) setFieldErrors({ ...fieldErrors, city: "" });
-                      }}
-                      placeholder="e.g. Bengaluru"
-                      className={`w-full px-3 py-2.5 text-xs bg-slate-50 border rounded-xl focus:bg-white focus:ring-2 focus:outline-none transition font-medium ${
-                        fieldErrors.city ? "border-rose-400 focus:ring-rose-500 bg-rose-50/30" : "border-slate-200 focus:ring-cyan-500"
-                      }`}
-                    />
-                    {fieldErrors.city && (
-                      <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>{fieldErrors.city}</span>
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-extrabold text-slate-700">State *</label>
-                    <select
-                      value={address.state}
-                      onChange={(e) => setAddress({ ...address, state: e.target.value })}
-                      className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-bold focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition"
-                    >
-                      {INDIAN_STATES.map((st) => (
-                        <option key={st} value={st}>{st}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-extrabold text-slate-700">PIN Code *</label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={6}
-                      value={address.pincode}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, "");
-                        setAddress({ ...address, pincode: val });
-                        if (fieldErrors.pincode) setFieldErrors({ ...fieldErrors, pincode: "" });
-                      }}
-                      placeholder="6-digit PIN"
-                      className={`w-full px-3 py-2.5 text-xs bg-slate-50 border rounded-xl font-mono font-bold focus:bg-white focus:ring-2 focus:outline-none transition ${
-                        fieldErrors.pincode ? "border-rose-400 focus:ring-rose-500 bg-rose-50/30" : "border-slate-200 focus:ring-cyan-500"
-                      }`}
-                    />
-                    {fieldErrors.pincode && (
-                      <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1 mt-0.5">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>{fieldErrors.pincode}</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className="space-y-1">
-                    <label className="text-xs font-extrabold text-slate-700">Landmark (Optional)</label>
-                    <input
-                      type="text"
-                      value={address.landmark || ""}
-                      onChange={(e) => setAddress({ ...address, landmark: e.target.value })}
-                      placeholder="Near Metro Station, prominent park, etc."
-                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition font-medium"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-extrabold text-slate-700">Delivery Instructions (Optional)</label>
-                    <input
-                      type="text"
-                      value={address.deliveryInstructions || ""}
-                      onChange={(e) => setAddress({ ...address, deliveryInstructions: e.target.value })}
-                      placeholder="e.g. Leave with security / Ring bell twice"
-                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none transition font-medium"
-                    />
-                  </div>
-                </div>
-
-                {/* Save Address Option Checkbox */}
-                <div className="pt-1 flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="saveAddressCheckbox"
-                    checked={saveAddressForFuture}
-                    onChange={(e) => setSaveAddressForFuture(e.target.checked)}
-                    className="w-4 h-4 rounded text-cyan-600 border-slate-300 focus:ring-cyan-500 cursor-pointer"
-                  />
-                  <label htmlFor="saveAddressCheckbox" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
-                    Save this delivery address for my future purchases
-                  </label>
-                </div>
-
-                {/* Delivery Option Selector */}
-                <div className="pt-2">
-                  <label className="text-xs font-extrabold text-slate-800 block mb-2">Select Delivery Speed</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryType("standard")}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                        deliveryType === "standard"
-                          ? "border-cyan-600 bg-cyan-50/60 ring-2 ring-cyan-500/20"
-                          : "border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-slate-900 text-xs">Standard Delivery</span>
-                        <span className="text-[10px] font-bold text-emerald-600">
-                          {subtotal > 499 ? "FREE" : "₹49"}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 mt-1">Delivery in 2-4 business days</p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryType("express")}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                        deliveryType === "express"
-                          ? "border-cyan-600 bg-cyan-50/60 ring-2 ring-cyan-500/20"
-                          : "border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-slate-900 text-xs flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-amber-500" />
-                          <span>Priority Rocket</span>
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-900">₹99</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 mt-1">Guaranteed next-day delivery</p>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Footer Bar & Submit */}
-                <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div>
-                    <span className="text-slate-500 text-xs">Total Amount: </span>
-                    <span className="font-black text-slate-950 text-base sm:text-lg">₹{finalTotal.toLocaleString("en-IN")}</span>
-                    {discount > 0 && (
-                      <span className="ml-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        -₹{discount} Saved
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto px-7 py-3 bg-slate-900 hover:bg-cyan-600 active:scale-[0.99] text-white text-xs font-black rounded-2xl flex items-center justify-center space-x-2 transition-all shadow-md hover:shadow-cyan-500/20 cursor-pointer"
-                  >
-                    <span>Proceed to Payment</span>
-                    <ArrowRight className="w-4 h-4 text-cyan-400" />
-                  </button>
-                </div>
+              <form id="checkout-address-form" noValidate onSubmit={handleAddressSubmit} className="space-y-5">
+                <details className="border-b border-slate-200 pb-4">
+                  <summary className="cursor-pointer text-sm text-slate-600"><span className="ml-1">{cart.reduce((sum, item) => sum + item.quantity, 0)} {cart.reduce((sum, item) => sum + item.quantity, 0) === 1 ? "item" : "items"}</span><span className="float-right font-medium text-slate-900">₹{finalTotal.toLocaleString("en-IN")}</span></summary>
+                  <ul className="mt-4 space-y-3">{cart.map((item, index) => <li key={index} className="flex items-center gap-3">
+                    <img src={item.product.normalizedImage || item.product.image} alt="" className="h-10 w-10 shrink-0 object-contain" />
+                    <div className="min-w-0 flex-1"><p className="text-sm break-words">{item.product.title}</p><p className="text-xs text-slate-500">Qty {item.quantity}</p></div>
+                    <span className="text-sm">₹{(item.product.price * item.quantity).toLocaleString("en-IN")}</span>
+                  </li>)}</ul>
+                </details>
+                {validationError && <p role="alert" className="text-sm text-rose-700">{validationError}</p>}
+                {addressMode === "summary" && <section aria-label="Selected delivery address" className="space-y-3">
+                  <div className="flex items-center justify-between gap-3"><h3 className="font-medium">Deliver to</h3><div className="flex gap-4">
+                    <button type="button" className="min-h-11 text-sm text-teal-800" onClick={() => setAddressMode("choose")}>Change</button>
+                    <button type="button" className="min-h-11 text-sm text-teal-800" onClick={() => { setDetailsOpen(Boolean(address.landmark || address.deliveryInstructions)); setAddressMode("form"); }}>Edit</button>
+                  </div></div>
+                  <div className="text-sm leading-6 text-slate-600 break-words"><p className="font-medium text-slate-900">{address.fullName}</p><p>{[address.houseNumber, address.street].filter(Boolean).join(", ")}</p><p>{address.city}, {address.state} {address.pincode}</p><p>{address.phone}</p>{address.email && <p>{address.email}</p>}{address.landmark && <p>Landmark: {address.landmark}</p>}{address.deliveryInstructions && <p>{address.deliveryInstructions}</p>}</div>
+                  {serviceability !== "invalid" && <p role="status" className="text-xs leading-relaxed text-slate-500">{serviceability === "available" ? "Delivery is available to this PIN code." : serviceability === "unavailable" ? "Delivery is unavailable to this PIN code. Choose another address." : "Delivery availability is not confirmed yet. Contact support before ordering."}</p>}
+                </section>}
+                {addressMode === "choose" && <section aria-label="Saved addresses" className="space-y-3">
+                  <h3 className="font-medium">Choose an address</h3>
+                  {user?.addresses?.map((saved: ShippingAddress, index: number) => <button type="button" key={index} onClick={() => {
+                    setAddress(checkoutAddress(saved, user)); setSavedAddressIndex(index); setAddressMode("summary"); setDetailsOpen(Boolean(saved.landmark || saved.deliveryInstructions));
+                    setAddressRevision(n => n + 1); setFieldErrors({}); setValidationError("");
+                  }} className={"block w-full rounded-lg border p-3 text-left text-sm leading-6 " + (savedAddressIndex === index ? "border-teal-700" : "border-slate-200 hover:border-slate-400")}>
+                    <span className="block font-medium">{saved.fullName}</span><span className="block text-slate-600">{[saved.houseNumber, saved.street, saved.city, saved.state, saved.pincode].filter(Boolean).join(", ")}</span>
+                  </button>)}
+                  <button type="button" className="min-h-11 text-sm text-teal-800" onClick={() => {
+                    setAddress(checkoutAddress(undefined, user)); setSavedAddressIndex(undefined); setAddressMode("form"); setDetailsOpen(false); setFieldErrors({}); setValidationError(""); setAddressRevision(n => n + 1);
+                  }}>+ Add new address</button>
+                </section>}
+                {addressMode === "form" && <>
+                  {user?.addresses?.length > 0 && <button type="button" className="text-sm text-teal-800" onClick={() => setAddressMode("choose")}>Choose a saved address</button>}
+                  <AddressAutocomplete onAddressSelect={handleAutocompleteSelect} addressRevision={addressRevision} />
+                  <CheckoutAddressFields address={address} errors={fieldErrors} detailsOpen={detailsOpen} onDetailsToggle={setDetailsOpen} onChange={(field, value) => {
+                    setAddress(prev => ({ ...prev, [field]: value, ...(["houseNumber", "street", "city", "state", "pincode"].includes(field) ? { coordinates: undefined } : {}) }));
+                    setAddressRevision(n => n + 1); setFieldErrors(prev => ({ ...prev, [field]: "" }));
+                  }} />
+                </>}
+                {addressMode !== "choose" && <label className="flex min-h-11 items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={saveAddressForFuture} onChange={event => setSaveAddressForFuture(event.target.checked)} className="h-4 w-4 accent-teal-700" />Save this address</label>}
               </form>
             )}
 
@@ -940,7 +548,7 @@ export default function CheckoutModal({
                         Delivering to: <span className="text-slate-950 font-black">{address.fullName}</span> ({address.city}, {address.pincode})
                       </p>
                       <p className="text-[11px] text-slate-500">
-                        {deliveryType === "express" ? "Priority Rocket Delivery (Next Day)" : "Standard Express Delivery (2-4 Days)"}
+                        Standard delivery
                       </p>
                     </div>
                   </div>
@@ -1203,7 +811,7 @@ export default function CheckoutModal({
                   )}
 
                   <div className="flex items-center justify-between text-slate-600">
-                    <span>Delivery Charges ({deliveryType === "express" ? "Priority Rocket" : "Standard"})</span>
+                    <span>Standard shipping</span>
                     <span className="font-semibold text-slate-800">
                       {shippingFee === 0 ? (
                         <span className="text-emerald-700 font-extrabold uppercase text-[10px]">Free</span>
@@ -1324,7 +932,8 @@ export default function CheckoutModal({
                           transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 }}
                         />
                       </motion.svg>
-                    </motion.div>
+
+        </motion.div>
                   </div>
 
                   <div>
@@ -1651,6 +1260,20 @@ export default function CheckoutModal({
               </div>
             )}
           </div>
+          {step === "ADDRESS" && <footer className="shrink-0 border-t border-slate-200 bg-white px-5 py-3 sm:px-7" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+            <details className="mb-3 text-sm">
+              <summary className="cursor-pointer text-slate-500">Price breakdown</summary>
+              <dl className="mt-2 space-y-1 text-xs text-slate-600">
+                <div className="flex justify-between"><dt>Items</dt><dd>₹{subtotal.toLocaleString("en-IN")}</dd></div>
+                {discount > 0 && <div className="flex justify-between"><dt>Discount</dt><dd>−₹{discount.toLocaleString("en-IN")}</dd></div>}
+                <div className="flex justify-between"><dt>Standard shipping</dt><dd>{shippingFee ? "₹" + shippingFee : "Free"}</dd></div>
+              </dl>
+            </details>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center justify-between gap-3 sm:block"><span className="text-xs text-slate-500 sm:block">Payable total</span><strong className="text-lg font-semibold">₹{finalTotal.toLocaleString("en-IN")}</strong></div>
+              <button type="submit" form="checkout-address-form" disabled={couponBusy || addressMode === "choose"} className="min-h-11 w-full rounded-lg bg-teal-700 px-5 py-3 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50 sm:w-auto">Continue to payment</button>
+            </div>
+          </footer>}
         </motion.div>
       </div>
     </AnimatePresence>
