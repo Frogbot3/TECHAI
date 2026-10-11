@@ -20,15 +20,15 @@ import {
 import TechAiLogo from "../TechAiLogo";
 import { ThemeSelector } from "./AdminTheme";
 import { AdminModal } from "./AdminUI";
-export type AdminTab =
-  | "ANALYTICS"
-  | "PRODUCTS"
-  | "ORDERS"
-  | "CUSTOMERS"
-  | "CAMPAIGNS"
-  | "REFUNDS"
-  | "COUPONS";
+import type { AdminTab } from "@/lib/admin-navigation";
+export type { AdminTab } from "@/lib/admin-navigation";
 const modules = [
+  {
+    id: "ORDERS",
+    label: "Orders",
+    icon: ShoppingBag,
+    description: "Review purchases, manage fulfilment, and track deliveries.",
+  },
   {
     id: "ANALYTICS",
     label: "Overview & Analytics",
@@ -41,12 +41,7 @@ const modules = [
     icon: Package,
     description: "Manage your catalog, product images and stock.",
   },
-  {
-    id: "ORDERS",
-    label: "Orders",
-    icon: ShoppingBag,
-    description: "Manage payments, fulfilment and delivery.",
-  },
+
   {
     id: "CUSTOMERS",
     label: "Customers",

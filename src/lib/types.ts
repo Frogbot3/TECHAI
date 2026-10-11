@@ -136,6 +136,8 @@ export interface Order {
   shippingAddress: ShippingAddress;
   totalAmount: number;
   discountAmount: number;
+  discountCode?: string;
+  taxAmount?: number;
   shippingFee: number;
   finalAmount: number;
   paymentMethod: PaymentMethod;

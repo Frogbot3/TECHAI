@@ -106,12 +106,12 @@ export function exportSingleOrderToExcel(order: Order): void {
   XLSX.writeFile(workbook, `TECHAI-Order-${order.id}.xlsx`);
 }
 
-export function exportAllOrdersToExcel(orders: Order[]): void {
+export function exportAllOrdersToExcel(orders: Order[], sheetName = "All Orders Master", filename?: string): void {
   const workbook = XLSX.utils.book_new();
   const allRows = orders.flatMap((order) => transformOrderToRows(order));
   const worksheet = XLSX.utils.aoa_to_sheet([ORDER_HEADERS, ...allRows]);
   worksheet["!cols"] = ORDER_COL_WIDTHS;
 
-  XLSX.utils.book_append_sheet(workbook, worksheet, "All Orders Master");
-  XLSX.writeFile(workbook, `TECHAI-All-Orders-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  XLSX.writeFile(workbook, filename || `TECHAI-All-Orders-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }

@@ -137,6 +137,8 @@ export function toClientOrder(value: any): Order {
       image: item.image ?? `/api/orders/${encodeURIComponent(order.orderId || order.id)}/image?item=${index}`,
     })) : [],
     shippingAddress: {
+      houseNumber: order.shippingAddress?.houseNumber || undefined,
+      deliveryInstructions: order.shippingAddress?.deliveryInstructions || undefined,
       fullName: order.shippingAddress?.fullName || order.userName || "Customer",
       phone: order.shippingAddress?.phone || order.userPhone || "",
       email: order.shippingAddress?.email || order.userEmail || "",
@@ -148,6 +150,8 @@ export function toClientOrder(value: any): Order {
     },
     totalAmount: Number(order.totalAmount || 0),
     discountAmount: Number(order.discountAmount || 0),
+    discountCode: order.discountCode || undefined,
+    taxAmount: typeof order.taxAmount === "number" ? order.taxAmount : undefined,
     shippingFee: Number(order.shippingFee || 0),
     finalAmount: Number(order.finalAmount || 0),
     paymentMethod: order.paymentMethod || "COD",

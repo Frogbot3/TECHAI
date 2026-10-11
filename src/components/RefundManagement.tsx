@@ -43,12 +43,12 @@ const statusClass = (status: RefundStatus) =>
     CANCELLED: "bg-admin-subtle text-admin-text border-admin-border",
   })[status];
 
-export default function RefundManagement() {
+export default function RefundManagement({ initialSearch = "" }: { initialSearch?: string }) {
   const { notify, confirm: confirmAction } = useAdminFeedback();
   const [refunds, setRefunds] = useState<Refund[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [status, setStatus] = useState<"ALL" | RefundStatus>("ALL");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [sort, setSort] = useState<"newest" | "oldest">("newest");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [approvalAmount, setApprovalAmount] = useState("");

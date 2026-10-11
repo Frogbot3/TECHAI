@@ -1,5 +1,6 @@
 "use client";
 
+import { safeAdminReturn } from "@/lib/admin-navigation";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ThemeSelector } from "@/components/admin/AdminTheme";
@@ -33,7 +34,8 @@ export default function AdminLoginPage() {
         return;
       }
 
-      router.push("/admin/dashboard");
+      router.replace(safeAdminReturn(new URLSearchParams(window.location.search).get("next")));
+      router.refresh();
     } catch {
       setError("Connection error. Please try again.");
     } finally {
