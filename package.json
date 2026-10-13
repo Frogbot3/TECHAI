@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --test tests/*.test.cjs"
+    "test": "node --test tests/*.test.cjs",
+    "test:invoice-issuance": "node tests/invoice-issuance.integration.cjs",
+    "test:invoice-pdf": "node tests/render-invoice-samples.cjs",
+    "test:invoice-ui": "node tests/invoice-ui.cjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.3",
@@ -22,19 +25,25 @@
     "mongoose": "^8.8.4",
     "next": "^15.1.12",
     "next-auth": "^4.24.15",
+    "qrcode": "^1.5.4",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "resend": "^4.0.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^1.0.11",
     "@types/canvas-confetti": "^1.6.4",
     "@types/google.maps": "^3.66.6",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.1",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@zxing/library": "^0.23.0",
     "autoprefixer": "^10.4.20",
+    "mongodb-memory-server": "^11.3.0",
+    "pdfjs-dist": "^6.4.299",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3"

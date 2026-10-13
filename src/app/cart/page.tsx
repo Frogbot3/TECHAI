@@ -267,12 +267,13 @@ export default function CartPage() {
               {couponError && <p role="alert" className="text-xs text-red-700">{couponError}</p>}
               {/* Total Amount */}
               <div className="flex justify-between items-baseline pt-2 border-t border-slate-200">
-                <span className="text-sm font-extrabold text-slate-900">Total Amount</span>
+                <span className="text-sm font-extrabold text-slate-900">Estimated amount</span>
                 <span className="text-xl font-black text-slate-950">
                   ₹{finalTotal.toLocaleString("en-IN")}
                 </span>
               </div>
 
+              <p className="mb-3 text-xs text-slate-500">Final GST and shipping tax are calculated after your address is confirmed.</p>
               {/* Checkout Button */}
               <button
                 type="button"

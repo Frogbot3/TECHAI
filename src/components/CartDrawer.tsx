@@ -142,7 +142,7 @@ export default function CartDrawer({
               {couponError && <p role="alert" className="text-xs text-red-700">{couponError}</p>}
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-slate-600">
-                  <span>Subtotal</span>
+                  <span>Items (listed prices)</span>
                   <span className="font-semibold text-slate-900">Rs. {subtotal.toLocaleString("en-IN")}</span>
                 </div>
                 {discount > 0 && (
@@ -156,7 +156,7 @@ export default function CartDrawer({
                   <span className="font-semibold text-slate-900">{shippingFee === 0 ? "Free" : `Rs. ${shippingFee}`}</span>
                 </div>
                 <div className="flex justify-between border-t border-slate-200 pt-3 text-base font-extrabold text-slate-950">
-                  <span>Total</span>
+                  <span>Estimated total</span>
                   <span>Rs. {finalTotal.toLocaleString("en-IN")}</span>
                 </div>
               </div>

@@ -171,7 +171,7 @@ export default function ProductDetailModal({
                       Save ₹{(product.originalPrice - product.price).toLocaleString("en-IN")} ({product.discountPercent}%)
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-500 font-medium">Inclusive of all taxes</p>
+                  <p className="text-[11px] text-slate-500 font-medium">{product.tax ? product.tax.priceBasis === "inclusive" ? "Price includes GST" : "Price excludes GST; added at checkout" : "Tax setup required"}</p>
                 </div>
 
                 {/* Stock & Delivery Status */}

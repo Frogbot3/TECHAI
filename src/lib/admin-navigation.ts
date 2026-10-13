@@ -6,6 +6,7 @@ export const ADMIN_TABS = [
   "COUPONS",
   "CAMPAIGNS",
   "REFUNDS",
+  "BUSINESS",
 ] as const;
 export type AdminTab = (typeof ADMIN_TABS)[number];
 export function adminTab(value: string | null): AdminTab {

@@ -185,7 +185,7 @@ export default function OrdersPage() {
             </h1>
             <p className="text-xs text-slate-500 mt-1">
               {store.user
-                ? "View your placed orders, download tax invoices, write verified reviews, and track live courier shipments."
+                ? "View your placed orders, download invoices, write verified reviews, and track live courier shipments."
                 : "Tracking and orders placed in this browser. Sign in to sync your verified account history."}
             </p>
           </div>
@@ -443,7 +443,7 @@ export default function OrdersPage() {
                         className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors"
                       >
                         <FileText className="w-3.5 h-3.5 text-slate-600" />
-                        <span>Tax Invoice</span>
+                        <span>View invoice</span>
                       </button>
 
                       {/* Reorder / Buy Again */}

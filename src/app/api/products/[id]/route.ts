@@ -1,3 +1,5 @@
+import { validateProductTax } from "@/lib/tax";
+import { getBusinessSettings } from "@/lib/server-business-settings";
 import { validateProductImages } from "@/lib/product-images";
 import {
   hasProductImageReferences,
@@ -40,6 +42,12 @@ export async function PATCH(
         { status: 400 },
       );
     await connectToDatabase();
+
+    if (Object.keys(body).some(key => key.includes(".") || key.startsWith("$"))) return NextResponse.json({message:"Nested update paths are not allowed."},{status:400});
+    if (body.tax != null) {
+      try { body.tax = validateProductTax(body.tax, await getBusinessSettings()); }
+      catch(error) { return NextResponse.json({message:(error as Error).message},{status:400}); }
+    }
 
     if (hasProductImageReferences(body)) {
       const existing = await Product.findOne(buildProductQuery(id))

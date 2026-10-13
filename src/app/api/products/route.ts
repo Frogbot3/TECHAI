@@ -1,3 +1,5 @@
+import { validateProductTax } from "@/lib/tax";
+import { getBusinessSettings } from "@/lib/server-business-settings";
 import { storefrontProduct } from "@/lib/storefront-catalog";
 import { databaseErrorResponse } from "@/lib/database-errors";
 import { pagination } from "@/lib/query";
@@ -105,11 +107,19 @@ export async function POST(req: Request) {
     if (imageError) return NextResponse.json({ success: false, message: imageError }, { status: 400 });
     await connectToDatabase();
 
+    if (Object.keys(body).some(key => key.includes(".") || key.startsWith("$"))) return NextResponse.json({message:"Nested update paths are not allowed."},{status:400});
+    if (body.tax != null) {
+      try { body.tax = validateProductTax(body.tax, await getBusinessSettings()); }
+      catch(error) { return NextResponse.json({message:(error as Error).message},{status:400}); }
+    }
+
     const images = Array.isArray(body.images) && body.images.length > 0
       ? body.images
       : [body.image || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900&auto=format&fit=crop&q=80"];
 
     const product = await Product.create({
+      tax: body.tax || undefined,
+      sku: body.sku || "",
       productId: body.id || `prod-${Date.now()}`,
       title: body.title,
       brand: body.brand || "TECH AI",

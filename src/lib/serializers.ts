@@ -23,6 +23,8 @@ export function toClientProduct(value: any): Product {
   const product = toPlain(value);
   return {
     id: product.productId || product.id || product._id?.toString() || `prod-${Date.now()}`,
+    tax: product.tax || undefined,
+    sku: product.sku || undefined,
     title: product.title || "Untitled product",
     brand: product.brand || "TECH AI",
     category: product.category || "Electronics",
@@ -130,6 +132,8 @@ export function toClientOrder(value: any): Order {
   const order = toPlain(value);
   return {
     id: order.orderId || order.id || order._id?.toString() || `TECHAI-ORD-${Date.now()}`,
+    taxSnapshot: order.taxSnapshot || undefined,
+    invoiceNumber: order.invoiceNumber || undefined,
     checkoutId: order.checkoutId || undefined,
     customerId: order.customerId || undefined,
     items: Array.isArray(order.items) ? order.items.map((item: any, index: number) => normalizeCartItem({
@@ -154,7 +158,7 @@ export function toClientOrder(value: any): Order {
     totalAmount: Number(order.totalAmount || 0),
     discountAmount: Number(order.discountAmount || 0),
     discountCode: order.discountCode || undefined,
-    taxAmount: typeof order.taxAmount === "number" ? order.taxAmount : undefined,
+    taxAmount: order.taxSnapshot ? order.taxSnapshot.tax / 100 : typeof order.taxAmount === "number" ? order.taxAmount : undefined,
     shippingFee: Number(order.shippingFee || 0),
     finalAmount: Number(order.finalAmount || 0),
     paymentMethod: order.paymentMethod || "COD",

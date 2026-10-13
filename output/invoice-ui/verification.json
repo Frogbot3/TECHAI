@@ -1,0 +1,12 @@
+{
+  "settingsSavedToMock": true,
+  "productPreview": true,
+  "checkoutQuote": true,
+  "mobileNoOverflow": true,
+  "paymentNotSubmitted": true,
+  "invoicePreviewAndDownload": true,
+  "invoiceEscapeDismissal": true,
+  "quoteCalls": 1,
+  "errors": [],
+  "unexpected": []
+}

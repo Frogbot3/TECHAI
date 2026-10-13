@@ -1,3 +1,5 @@
+import { paise, roundRatio } from "./tax";
+
 export interface CouponData {
   name: string;
   code: string;
@@ -97,9 +99,9 @@ export function calculateCouponDiscount(
     );
   let amount =
     coupon.type === "percentage"
-      ? (subtotal * coupon.value) / 100
-      : coupon.value;
+      ? roundRatio(BigInt(paise(subtotal)) * BigInt(paise(coupon.value)), BigInt(10000))
+      : paise(coupon.value);
   if (coupon.maximumDiscount > 0)
-    amount = Math.min(amount, coupon.maximumDiscount);
-  return Math.min(subtotal, Math.round(amount * 100) / 100);
+    amount = Math.min(amount, paise(coupon.maximumDiscount));
+  return Math.min(paise(subtotal), amount) / 100;
 }

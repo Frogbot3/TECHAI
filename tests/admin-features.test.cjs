@@ -1,6 +1,7 @@
 ﻿const test = require('node:test');
 const assert = require('node:assert/strict');
 const loader = require('./load-ts.cjs');
+const { settings, productTax } = require('./invoice-fixtures.cjs');
 const { validateCoupon, calculateCouponDiscount, couponStatus, legacyCoupon } = loader()('src/lib/coupons.ts');
 const offer = { ...legacyCoupon, code: 'SAVE20', value: 20 };
 const request = (body, method = 'POST') => new Request('http://local/api', { method, body: JSON.stringify(body) });
@@ -53,16 +54,17 @@ test('admin coupon saves validate before writes, normalize records and preserve 
 
 test('order creation uses trusted prices and rejects inactive coupons before stock writes', async () => {
   let coupon = { ...offer, value: 20 }, stockWrites = 0, saved;
-  const product = { productId: 'p1', title: 'Headphones', price: 1000, stock: 10, image: '/test.png' };
+  const product = { productId: 'p1', tax: productTax(), title: 'Headphones', price: 1000, stock: 10, image: '/test.png' };
   const { POST } = loader({
     '@/lib/auth': { getSessionFromCookie: async () => ({ role: 'customer', id: 'customer1' }) },
     '@/lib/mongodb': { connectToDatabase: async () => {} },
     '@/models/Coupon': { findOne: () => query(coupon) },
+    './server-business-settings': {getBusinessSettings: async () => settings()},
     '@/models/Product': { findOne: async () => product, findOneAndUpdate: async () => { stockWrites++; return product; } },
     '@/models/User': { findOneAndUpdate: async () => null },
     '@/models/Order': { create: async data => { saved = data; return data; } },
   })('src/app/api/orders/route.ts');
-  const body = { items: [{ product: { id: 'p1', price: 1 }, quantity: 2 }], shippingAddress: { fullName: 'QA', street: 'Test', city: 'Test', state: 'Test', pincode: '560001' }, discountCode: 'SAVE20', discountAmount: 1999, paymentMethod: 'COD' };
+  const body = { items: [{ product: { id: 'p1', price: 1 }, quantity: 2 }], shippingAddress: { fullName: 'QA', street: 'Test', city: 'Test', state: 'Karnataka', pincode: '560001' }, discountCode: 'SAVE20', discountAmount: 1999, paymentMethod: 'COD' };
   Object.assign(body.shippingAddress, { houseNumber: 'Flat 7', country: 'India', deliveryInstructions: 'QA gate', coordinates: { lat: 12.97, lng: 77.59 } });
   assert.equal((await POST(request(body))).status, 200);
   assert.equal(saved.discountAmount, 400);
@@ -73,7 +75,7 @@ test('order creation uses trusted prices and rejects inactive coupons before sto
   assert.deepEqual(saved.shippingAddress.coordinates, body.shippingAddress.coordinates);
   assert.equal(stockWrites, 1);
   coupon = { ...coupon, published: false };
-  assert.equal((await POST(request(body))).status, 400);
+  assert.equal((await POST(request(body))).status, 422);
   assert.equal(stockWrites, 1);
 });
 

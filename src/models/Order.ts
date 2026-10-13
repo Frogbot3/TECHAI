@@ -1,6 +1,9 @@
+import type { TaxSnapshot } from "@/lib/tax-types";
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IOrder extends Document {
+  taxSnapshot?: TaxSnapshot;
+  invoiceNumber?: string;
   orderId: string;
   checkoutId?: string;
   customerId?: string;
@@ -71,6 +74,8 @@ export interface IOrder extends Document {
 
 const OrderSchema = new Schema<IOrder>(
   {
+    taxSnapshot: { type: Schema.Types.Mixed, immutable: true },
+    invoiceNumber: String,
     orderId: { type: String, required: true, unique: true, index: true },
     checkoutId: { type: String, default: "", index: true },
     customerId: { type: String, default: "", index: true },

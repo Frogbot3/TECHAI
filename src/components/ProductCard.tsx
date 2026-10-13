@@ -138,6 +138,7 @@ export default function ProductCard({
               )}
             </div>
 
+            {product.tax && <p className="text-[10px] text-slate-500">{product.tax.priceBasis === "inclusive" ? "Includes GST" : "Excludes GST"}</p>}
             {/* Delivery / Stock Info */}
             <div className="mt-0.5">
               {isOutOfStock ? (

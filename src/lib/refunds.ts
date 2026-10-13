@@ -56,10 +56,15 @@ function getOrderLines(order: Pick<IOrder, "items">): OrderLine[] {
 }
 
 export function getRefundableLineAmountPaise(
-  order: Pick<IOrder, "items" | "discountAmount">,
+  order: Pick<IOrder, "items" | "discountAmount" | "taxSnapshot">,
   productId: string,
   quantity: number
 ) {
+  if (order.taxSnapshot) {
+    const lines = order.taxSnapshot.lines.filter(line => line.kind === "product" && line.productId === productId);
+    const qty = lines.reduce((n,line) => n + line.quantity, 0);
+    return qty > 0 ? Math.floor(lines.reduce((n,line) => n + line.total, 0) * Math.min(quantity,qty) / qty) : 0;
+  }
   const orderLines = getOrderLines(order);
   const lines = orderLines.filter((line) => line.productId === productId);
   const totalBasePaise = orderLines.reduce((sum, line) => sum + toPaise(line.price) * line.quantity, 0);

@@ -1,6 +1,9 @@
 "use client";
 
-import { useCouponPreview } from "@/lib/useCouponPreview";
+import { useCheckoutTaxQuote } from "@/lib/useCheckoutTaxQuote";
+import type { BuyerTaxDetails } from "@/lib/tax-types";
+import CheckoutTaxSummary from "./CheckoutTaxSummary";
+import CheckoutBillingFields from "./CheckoutBillingFields";
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -52,7 +55,9 @@ interface CheckoutModalProps {
     paymentDetails?: any,
     checkoutId?: string,
     saveAddress?: boolean,
-    savedAddressIndex?: number
+    savedAddressIndex?: number,
+    buyerTax?: BuyerTaxDetails,
+    quoteHash?: string
   ) => Promise<Order> | Order;
   onPaymentSuccess: () => Promise<void> | void;
   onOpenOrderTracking: (orderId: string) => void;
@@ -103,9 +108,11 @@ export default function CheckoutModal({
   const [copiedOrderId, setCopiedOrderId] = useState(false);
   const [copiedTracking, setCopiedTracking] = useState(false);
 
+  const [buyerTax, setBuyerTax] = useState<BuyerTaxDetails>({kind:"consumer"});
+  const {quote, error: couponError, busy: couponBusy} = useCheckoutTaxQuote(cart,address,buyerTax,appliedCoupon,isOpen);
   const checkoutIdRef = useRef("");
   const cartSignature = cart.map((item) => `${item.product.id}:${item.quantity}`).sort().join("|");
-  const checkoutStorageKey = `techai-checkout-standard-v2:${user?.id || "guest"}:${cartSignature}:${appliedCoupon || ""}`;
+  const checkoutStorageKey = `techai-checkout-standard-v2:${user?.id || "guest"}:${cartSignature}:${appliedCoupon || ""}:${quote?.hash || "pending"}`;
 
   useEffect(() => {
     setPendingOrder(null);
@@ -118,6 +125,7 @@ export default function CheckoutModal({
     const owner = user?.id || "guest";
     if (addressOwner.current === owner) return;
     addressOwner.current = owner;
+    setBuyerTax({kind:"consumer"});
     const saved = user?.addresses?.[0];
     setAddress(checkoutAddress(saved, user));
     setSavedAddressIndex(saved ? 0 : undefined);
@@ -161,10 +169,10 @@ export default function CheckoutModal({
 
 
   const subtotal = cart.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
-  const { discount, error: couponError, busy: couponBusy } = useCouponPreview(appliedCoupon, subtotal, isOpen);
+  const discount = quote ? quote.tax.discount / 100 : 0;
   if (!isOpen) return null;
-  const shippingFee = standardShippingFee(subtotal);
-  const finalTotal = Math.max(0, subtotal - discount + shippingFee);
+  const shippingFee = quote ? quote.tax.shipping / 100 : standardShippingFee(subtotal);
+  const finalTotal = quote ? quote.tax.total / 100 : Math.max(0, subtotal - discount + shippingFee);
   const serviceability = checkPincode(address.pincode);
 
   const handleAutocompleteSelect = (data: AddressPayload) => {
@@ -199,7 +207,7 @@ export default function CheckoutModal({
       return;
     }
 
-    if (couponBusy || couponError) { setValidationError(couponError || "Checking your coupon…"); return; }
+    if (couponBusy || couponError || !quote) { setValidationError(couponError || "Confirm the complete address and wait for the tax total."); return; }
     addressSubmitting.current = true;
     setFieldErrors({});
     setStep("PAYMENT");
@@ -255,7 +263,7 @@ export default function CheckoutModal({
 
   const handlePaymentSubmit = async () => {
     if (step === "PROCESSING" || isSubmittingPayment) return;
-    if (!pendingOrder && (couponBusy || couponError)) {
+    if (!pendingOrder && (couponBusy || couponError || !quote)) {
       setValidationError(couponError || "Please wait while we check your coupon.");
       return;
     }
@@ -272,7 +280,9 @@ export default function CheckoutModal({
           { provider: paymentMethod === "COD" ? "COD" : "Razorpay" },
           checkoutIdRef.current,
           saveAddressForFuture,
-          savedAddressIndex
+          savedAddressIndex,
+          buyerTax,
+          quote?.hash
         )
       );
       if (!pendingOrder) setPendingOrder(order);
@@ -530,6 +540,8 @@ export default function CheckoutModal({
                     setAddressRevision(n => n + 1); setFieldErrors(prev => ({ ...prev, [field]: "" }));
                   }} />
                 </>}
+                {addressMode !== "choose" && <CheckoutBillingFields address={address} value={buyerTax} onChange={setBuyerTax} />}
+                {couponError && <p role="alert" className="text-sm text-rose-700">{couponError}</p>}
                 {addressMode !== "choose" && <label className="flex min-h-11 items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={saveAddressForFuture} onChange={event => setSaveAddressForFuture(event.target.checked)} className="h-4 w-4 accent-teal-700" />Save this address</label>}
               </form>
             )}
@@ -795,6 +807,7 @@ export default function CheckoutModal({
 
                 {/* Compact Payment Summary */}
                 <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/80 space-y-2 text-xs">
+                  {quote ? <CheckoutTaxSummary tax={quote.tax}/> : <>
                   <div className="flex items-center justify-between text-slate-600">
                     <span>Product Subtotal ({cart.reduce((s, i) => s + i.quantity, 0)} items)</span>
                     <span className="font-semibold text-slate-800">₹{subtotal.toLocaleString("en-IN")}</span>
@@ -822,10 +835,11 @@ export default function CheckoutModal({
                   </div>
 
                   <div className="flex items-center justify-between text-slate-500 text-[11px]">
-                    <span>Applicable Taxes (GST 18%)</span>
-                    <span className="font-medium text-slate-600">Included in total</span>
+                    <span>GST from product tax settings</span>
+                    <span className="font-medium text-slate-600">Awaiting tax calculation</span>
                   </div>
 
+                  </>}
                   <div className="pt-2.5 border-t border-slate-200 flex items-center justify-between">
                     <div>
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
@@ -1263,14 +1277,14 @@ export default function CheckoutModal({
           {step === "ADDRESS" && <footer className="shrink-0 border-t border-slate-200 bg-white px-5 py-3 sm:px-7" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
             <details className="mb-3 text-sm">
               <summary className="cursor-pointer text-slate-500">Price breakdown</summary>
-              <dl className="mt-2 space-y-1 text-xs text-slate-600">
+              {quote ? <div className="mt-2"><CheckoutTaxSummary tax={quote.tax}/></div> : <dl className="mt-2 space-y-1 text-xs text-slate-600">
                 <div className="flex justify-between"><dt>Items</dt><dd>₹{subtotal.toLocaleString("en-IN")}</dd></div>
                 {discount > 0 && <div className="flex justify-between"><dt>Discount</dt><dd>−₹{discount.toLocaleString("en-IN")}</dd></div>}
                 <div className="flex justify-between"><dt>Standard shipping</dt><dd>{shippingFee ? "₹" + shippingFee : "Free"}</dd></div>
-              </dl>
+              </dl>}
             </details>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center justify-between gap-3 sm:block"><span className="text-xs text-slate-500 sm:block">Payable total</span><strong className="text-lg font-semibold">₹{finalTotal.toLocaleString("en-IN")}</strong></div>
+              <div className="flex items-center justify-between gap-3 sm:block"><span className="text-xs text-slate-500 sm:block">{quote ? "Payable total" : "Estimate · tax pending"}</span><strong className="text-lg font-semibold">₹{finalTotal.toLocaleString("en-IN")}</strong></div>
               <button type="submit" form="checkout-address-form" disabled={couponBusy || addressMode === "choose"} className="min-h-11 w-full rounded-lg bg-teal-700 px-5 py-3 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50 sm:w-auto">Continue to payment</button>
             </div>
           </footer>}

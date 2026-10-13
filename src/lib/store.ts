@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CartItem, HeroCampaign, Order, OrderStatus, PaymentDetails, PaymentMethod, Product, ShippingAddress, User } from "./types";
+import type { BuyerTaxDetails } from "./tax-types";
 import { INITIAL_PRODUCTS } from "./data";
 import { normalizeCartItem, toClientOrder, toClientProduct } from "./serializers";
 
@@ -342,7 +343,9 @@ export function useTechAiStore(initial?: { products: Product[]; campaigns: HeroC
     paymentDetails?: PaymentDetails,
     checkoutId?: string,
     saveAddress = true,
-    savedAddressIndex?: number
+    savedAddressIndex?: number,
+    buyerTax?: BuyerTaxDetails,
+    quoteHash?: string
   ): Promise<Order> => {
     const response = await fetch("/api/orders", {
       method: "POST",
@@ -354,6 +357,8 @@ export function useTechAiStore(initial?: { products: Product[]; campaigns: HeroC
         discountCode,
         saveAddress,
         savedAddressIndex,
+        buyerTax,
+        quoteHash,
         checkoutId,
         paymentDetails,
       }),

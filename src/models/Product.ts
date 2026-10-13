@@ -1,3 +1,4 @@
+import type { ProductTax } from "@/lib/tax-types";
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IProductReview {
@@ -10,6 +11,8 @@ export interface IProductReview {
 }
 
 export interface IProduct extends Document {
+  sku?: string;
+  tax?: ProductTax;
   productId: string;
   title: string;
   brand: string;
@@ -45,6 +48,8 @@ export interface IProduct extends Document {
 
 const ProductSchema = new Schema<IProduct>(
   {
+    sku: String,
+    tax: { type: Schema.Types.Mixed, default: undefined },
     productId: { type: String, required: true, unique: true, index: true },
     title: { type: String, required: true },
     brand: { type: String, required: true },

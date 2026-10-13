@@ -1,9 +1,9 @@
+import { calculateTrustedCheckout } from "@/lib/server-checkout-tax";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getSessionFromCookie, CUSTOMER_SESSION_COOKIE, ADMIN_SESSION_COOKIE } from "@/lib/auth";
 import { toClientOrder } from "@/lib/serializers";
-import { resolveCouponDiscount } from "@/lib/server-coupons";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
 import User from "@/models/User";
@@ -11,7 +11,6 @@ import { CartItem } from "@/lib/types";
 import { databaseErrorResponse } from "@/lib/database-errors";
 import { pagination, escapeRegex } from "@/lib/query";
 import { randomUUID } from "crypto";
-import { standardShippingFee } from "@/lib/checkout";
 import { validCoordinates } from "@/lib/google-address";
 
 const createOrderId = () => `TECHAI-ORD-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
@@ -52,9 +51,11 @@ export async function POST(req: Request) {
       saveAddress = true,
       savedAddressIndex,
       checkoutId,
+      buyerTax,
+      quoteHash,
     } = body;
 
-    if (!items || items.length === 0 || !shippingAddress) {
+    if (!Array.isArray(items) || items.length === 0 || items.length > 100 || !shippingAddress) {
       return NextResponse.json({ success: false, message: "Cart items and delivery address are required." }, { status: 400 });
     }
 
@@ -89,16 +90,19 @@ export async function POST(req: Request) {
       }
     }
 
-    const requestedItems = new Map<string, { quantity: number; title?: string; selectedColor?: string; selectedSize?: string }>();
+    const requestedItems = new Map<string, { productId: string; quantity: number; title?: string; selectedColor?: string; selectedSize?: string }>();
     for (const item of items) {
       const productId = String(item?.product?.id || item?.productId || item?.id || "").trim();
       const productTitle = typeof item?.product?.title === "string" ? item.product.title.trim() : "";
       const quantity = Number(item?.quantity);
+      for (const value of [item?.selectedColor,item?.selectedSize]) if(value!==undefined&&(typeof value!=="string"||value.length>100)) return NextResponse.json({success:false,message:"Invalid variant."},{status:400});
       if (!productId || !Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
         return NextResponse.json({ success: false, message: "Invalid cart item or quantity." }, { status: 400 });
       }
-      const previous = requestedItems.get(productId);
-      requestedItems.set(productId, {
+      const lineKey = JSON.stringify([productId,item.selectedColor||"",item.selectedSize||""]);
+      const previous = requestedItems.get(lineKey);
+      requestedItems.set(lineKey, {
+        productId,
         quantity: (previous?.quantity || 0) + quantity,
         title: previous?.title || productTitle,
         selectedColor: item?.selectedColor || previous?.selectedColor,
@@ -107,7 +111,8 @@ export async function POST(req: Request) {
     }
 
     const trustedItems: CartItem[] = [];
-    for (const [productId, requested] of requestedItems) {
+    for (const requested of requestedItems.values()) {
+      const productId = requested.productId;
       // A cached cart can contain an older productId. Resolve that legacy case
       // by exact title, while still taking every price and stock value from MongoDB.
       let product = await Product.findOne(buildProductQuery(productId));
@@ -139,6 +144,8 @@ export async function POST(req: Request) {
       trustedItems.push({
         product: {
           id: product.productId,
+          sku: product.sku,
+          tax: product.tax,
           title: product.title,
           brand: product.brand,
           category: product.category,
@@ -162,20 +169,15 @@ export async function POST(req: Request) {
       });
     }
 
-    const subtotal = trustedItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    let discountAmount = 0;
-    let appliedDiscountCode = "";
-    if (discountCode) {
-      try {
-        const coupon = await resolveCouponDiscount(discountCode, subtotal);
-        discountAmount = coupon.discount;
-        appliedDiscountCode = coupon.code;
-      } catch (error) {
-        return NextResponse.json({ success: false, message: error instanceof Error ? error.message : "Unable to apply coupon." }, { status: 400 });
-      }
-    }
-    const shippingFee = standardShippingFee(subtotal);
-    const finalAmount = Math.max(0, subtotal - discountAmount + shippingFee);
+    let quote;
+    try {
+      quote = await calculateTrustedCheckout(trustedItems.map(item => ({productId:item.product.id,sku:item.product.sku,description:item.product.title,variant:[item.selectedColor,item.selectedSize].filter(Boolean).join(" / "),quantity:item.quantity,price:item.product.price,tax:item.product.tax})),shippingAddress,buyerTax||{kind:"consumer"},discountCode);
+      if (quoteHash && quoteHash !== quote.hash) return NextResponse.json({success:false,message:"Prices or tax settings changed. Review the updated checkout total."},{status:409});
+    } catch(error) { return NextResponse.json({success:false,message:(error as Error).message},{status:422}); }
+    const discountAmount = quote.tax.discount / 100;
+    const appliedDiscountCode = quote.discountCode;
+    const shippingFee = quote.tax.shipping / 100;
+    const finalAmount = quote.tax.total / 100;
     if (finalAmount <= 0) {
       return NextResponse.json({ success: false, message: "The order amount must be greater than zero." }, { status: 400 });
     }
@@ -231,7 +233,8 @@ export async function POST(req: Request) {
         coordinates: validCoordinates(shippingAddress.coordinates) ? shippingAddress.coordinates : undefined,
       },
       checkoutId: safeCheckoutId,
-      totalAmount: subtotal,
+      totalAmount: quote.tax.subtotal / 100,
+      taxSnapshot: quote.tax,
       discountAmount,
       discountCode: appliedDiscountCode,
       shippingFee,

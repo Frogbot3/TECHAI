@@ -1,3 +1,4 @@
+import type { ProductTax, TaxSnapshot } from "./tax-types";
 export type OrderStatus = "Placed" | "Processing" | "Shipped" | "Out for Delivery" | "Delivered";
 
 export type PaymentMethod = "UPI" | "Card" | "NetBanking" | "COD";
@@ -33,6 +34,8 @@ export interface Review {
 }
 
 export interface Product {
+  sku?: string;
+  tax?: ProductTax;
   id: string;
   title: string;
   brand: string;
@@ -130,6 +133,8 @@ export interface PaymentDetails {
 }
 
 export interface Order {
+  taxSnapshot?: TaxSnapshot;
+  invoiceNumber?: string;
   id: string;
   checkoutId?: string;
   customerId?: string;

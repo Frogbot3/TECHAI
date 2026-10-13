@@ -1,3 +1,4 @@
+import { issueInvoice } from "@/lib/server-invoice";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
@@ -52,6 +53,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });
     }
 
+    if ((status && !["Placed", "Processing", "Shipped", "Out for Delivery", "Delivered"].includes(status)) || (paymentStatus && !["Pending", "Paid", "Failed"].includes(paymentStatus))) {
+      return NextResponse.json({success:false,message:"Invalid order or payment status."},{status:400});
+    }
     if (paymentStatus && paymentStatus !== order.paymentStatus && order.paymentMethod !== "COD") {
       return NextResponse.json(
         { success: false, message: "Online payment status is managed by verified Razorpay events." },
@@ -59,6 +63,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       );
     }
 
+    if (["Shipped", "Out for Delivery", "Delivered"].includes(status) && order.taxSnapshot) {
+      const invoice = await issueInvoice(order.orderId, adminSession.id, order.paymentMethod === "COD" ? paymentStatus : undefined);
+      order.invoiceNumber = invoice.number;
+    }
     if (status) order.status = status;
     if (paymentStatus) order.paymentStatus = paymentStatus;
     if (courierName) order.courierName = courierName;

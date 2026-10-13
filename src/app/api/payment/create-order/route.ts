@@ -38,6 +38,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "This order can no longer accept payment." }, { status: 409 });
     }
 
+    if (order.taxSnapshot && order.taxSnapshot.total !== Math.round(Number(order.finalAmount) * 100)) {
+      return NextResponse.json({success:false,message:"Order tax snapshot and payment amount disagree. Contact support."},{status:409});
+    }
     const { keyId } = getRazorpayConfig();
     const amountPaise = Math.round(Number(order.finalAmount) * 100);
     let razorpayOrderId = order.razorpayOrderId;

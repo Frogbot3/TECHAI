@@ -389,7 +389,7 @@ export default function OrderDetails({
                       </div>
                       {order.taxAmount !== undefined && (
                         <div>
-                          <dt>Tax (recorded)</dt>
+                          <dt>GST included in final total</dt>
                           <dd>{orderMoney(order.taxAmount)}</dd>
                         </div>
                       )}
@@ -422,6 +422,7 @@ export default function OrderDetails({
                   )}
                 </section>
                 <section className="admin-order-refund-info">
+                  {order.invoiceNumber && (order.refundedAmountPaise || 0) > 0 && <p role="status">Invoice {order.invoiceNumber} is preserved. Accountant review and a linked credit note are required; a payment refund does not amend GST documents.</p>}
                   <h3>Refunds</h3>
                   <p>
                     Refund state:{" "}
@@ -528,6 +529,7 @@ export default function OrderDetails({
         <footer className="admin-order-detail-footer">
           <span>Downloads include this order only.</span>
           <div>
+            {order && <a className="admin-button" href={`/api/orders/${encodeURIComponent(order.id)}/invoice`} target="_blank" rel="noreferrer">View / Print invoice</a>}
             <button
               className="admin-button"
               disabled={!order || loading || !!error || !!downloading}

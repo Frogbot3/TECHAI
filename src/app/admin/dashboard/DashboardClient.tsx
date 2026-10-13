@@ -14,6 +14,9 @@ import { adminTab, dashboardHref } from "@/lib/admin-navigation";
 import AdminOrders from "@/components/admin/AdminOrders";
 import { motion, AnimatePresence } from "framer-motion";
 import AdminShell, { type AdminTab } from "@/components/admin/AdminShell";
+import BusinessInvoiceSettings from "@/components/admin/BusinessInvoiceSettings";
+import ProductTaxFields from "@/components/admin/ProductTaxFields";
+import type { ProductTax } from "@/lib/tax-types";
 import CouponManager from "@/components/admin/CouponManager";
 import CustomerDetails from "@/components/admin/CustomerDetails";
 import AdminOverview from "@/components/admin/AdminOverview";
@@ -103,6 +106,8 @@ export default function AdminDashboardPage() {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   const [productForm, setProductForm] = useState({
+    tax: undefined as ProductTax | undefined,
+    sku: "",
     title: "",
     brand: "TECH AI",
     category: "Electronics",
@@ -325,7 +330,9 @@ export default function AdminDashboardPage() {
     setIsEditing(false);
     setEditingProductId(null);
     setProductForm({
-      title: "",
+      tax: undefined as ProductTax | undefined,
+    sku: "",
+    title: "",
       brand: "TECH AI",
       category: "Electronics",
       price: 1499,
@@ -375,6 +382,8 @@ export default function AdminDashboardPage() {
         : [product.image];
 
     setProductForm({
+      tax: product.tax,
+      sku: product.sku || "",
       title: product.title,
       brand: product.brand,
       category: product.category,
@@ -635,6 +644,7 @@ export default function AdminDashboardPage() {
 
     const payload = {
       ...productForm,
+      tax: productForm.tax || null,
       discountPercent: discount,
       image: productForm.images[0] || productForm.image,
       images:
@@ -919,6 +929,8 @@ export default function AdminDashboardPage() {
       )}
       {activeTab === "ORDERS" ? (
         <AdminOrders refreshKey={orderRefresh} onSync={setOrderSync} />
+      ) : activeTab === "BUSINESS" ? (
+        <BusinessInvoiceSettings />
       ) : activeTab === "COUPONS" ? (
         <CouponManager />
       ) : isLoading ? (
@@ -994,7 +1006,7 @@ export default function AdminDashboardPage() {
                   </div>
                   <div className="flex items-center space-x-2 text-xs">
                     <span className="text-admin-muted font-medium">
-                      {filteredProducts.length} Product(s)
+                      {filteredProducts.length} Product(s) • {products.filter(p => !p.tax).length} tax setup required
                     </span>
                     <button
                       type="button"
@@ -1051,6 +1063,7 @@ export default function AdminDashboardPage() {
                               <p className="font-medium text-admin-text line-clamp-1">
                                 {product.title}
                               </p>
+                              {!product.tax && <p className="text-xs text-amber-700">Tax setup required</p>}
                               <p className="text-[11px] text-admin-muted">
                                 {product.brand} • {product.images?.length || 1}{" "}
                                 image(s)
@@ -1462,6 +1475,8 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
               </FormSection>
+              <ProductTaxFields price={productForm.price} value={productForm.tax} onChange={tax => setProductForm(prev => ({...prev, tax}))} />
+              <label className="block text-sm">SKU<input className="admin-input" value={productForm.sku} onChange={e => setProductForm(prev => ({...prev,sku:e.target.value}))} /></label>
               <FormSection title="Product images">
                 <div className="bg-admin-surface p-4 rounded-xl border border-admin-border space-y-3">
                   <div className="flex items-center justify-between">

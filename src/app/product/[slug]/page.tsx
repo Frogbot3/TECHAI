@@ -284,7 +284,7 @@ export default function ProductPage() {
                 )}
               </div>
               <p className="mt-1 text-[11px] font-medium text-slate-500">
-                Inclusive of all taxes · Free shipping on orders over ₹499
+                {product.tax ? product.tax.priceBasis === "inclusive" ? "Price includes GST" : "Price excludes GST; added at checkout" : "Tax setup required"} · Free shipping on orders over ₹499
               </p>
             </div>
 

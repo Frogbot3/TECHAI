@@ -1,0 +1,66 @@
+[
+  {
+    "sample": "sample-mixed-intrastate",
+    "pages": 2,
+    "qrDecoded": true,
+    "totalPaise": 57574,
+    "pageStats": [
+      {
+        "page": 1,
+        "textItems": 154
+      },
+      {
+        "page": 2,
+        "textItems": 46
+      }
+    ]
+  },
+  {
+    "sample": "sample-interstate",
+    "pages": 2,
+    "qrDecoded": true,
+    "totalPaise": 27900,
+    "pageStats": [
+      {
+        "page": 1,
+        "textItems": 154
+      },
+      {
+        "page": 2,
+        "textItems": 46
+      }
+    ]
+  },
+  {
+    "sample": "sample-multipage",
+    "pages": 6,
+    "qrDecoded": true,
+    "totalPaise": 876394,
+    "pageStats": [
+      {
+        "page": 1,
+        "textItems": 162
+      },
+      {
+        "page": 2,
+        "textItems": 208
+      },
+      {
+        "page": 3,
+        "textItems": 208
+      },
+      {
+        "page": 4,
+        "textItems": 208
+      },
+      {
+        "page": 5,
+        "textItems": 180
+      },
+      {
+        "page": 6,
+        "textItems": 46
+      }
+    ]
+  }
+]

@@ -23,6 +23,7 @@ import { AdminModal } from "./AdminUI";
 import type { AdminTab } from "@/lib/admin-navigation";
 export type { AdminTab } from "@/lib/admin-navigation";
 const modules = [
+  { id: "BUSINESS", label: "Business / Invoice Settings", icon: ShieldCheck, description: "Seller identity, approved taxes and invoice policies." },
   {
     id: "ORDERS",
     label: "Orders",

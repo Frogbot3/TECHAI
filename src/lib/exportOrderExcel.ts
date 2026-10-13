@@ -45,7 +45,7 @@ const ORDER_HEADERS = [
   "Category",
   "Quantity",
   "Unit Price (INR)",
-  "GST 18% (INR)",
+  "GST from snapshot (INR)",
   "Item Net Total (INR)",
   "Order Subtotal (INR)",
   "Discount (INR)",
@@ -57,13 +57,15 @@ const ORDER_HEADERS = [
   "Logistics Partner",
   "Tracking AWB",
   "Transaction / UPI Ref",
+  "HSN", "GST rate", "Tax treatment", "Price basis", "Taxable value", "Line discount", "CGST", "SGST / UTGST", "IGST", "Invoice number", "Place of supply code",
 ];
 
-function transformOrderToRows(order: Order) {
-  return order.items.map((item) => {
+export function transformOrderToRows(order: Order) {
+  return order.items.map((item, index) => {
     const itemTotal = item.product.price * item.quantity;
-    const baseUnitPrice = Math.round((item.product.price / 1.18) * 100) / 100;
-    const gstAmount = Math.round((itemTotal - itemTotal / 1.18) * 100) / 100;
+    const taxLine = order.taxSnapshot?.lines.filter(line => line.kind === "product")[index];
+    const baseUnitPrice = item.product.price;
+    const gstAmount = taxLine ? taxLine.tax / 100 : "Tax details unavailable";
 
     return [
       order.id,
@@ -81,7 +83,7 @@ function transformOrderToRows(order: Order) {
       item.quantity,
       baseUnitPrice,
       gstAmount,
-      itemTotal,
+      taxLine ? taxLine.total / 100 : itemTotal,
       order.totalAmount,
       order.discountAmount,
       order.shippingFee,
@@ -92,8 +94,25 @@ function transformOrderToRows(order: Order) {
       order.courierName || "Tech AI Express",
       order.trackingNumber || "N/A",
       order.paymentDetails?.transactionId || order.paymentDetails?.upiId || "N/A",
+      taxLine?.hsn || "", taxLine?.rate ?? "", taxLine?.treatment || "Review required", taxLine?.priceBasis || "Unknown", taxLine ? taxLine.taxable / 100 : "", taxLine ? taxLine.discount / 100 : "", taxLine ? taxLine.cgst / 100 : "", taxLine ? (taxLine.sgst + taxLine.utgst) / 100 : "", taxLine ? taxLine.igst / 100 : "", order.invoiceNumber || "Not issued", order.taxSnapshot?.placeOfSupply.code || "",
     ];
   });
+}
+
+function appendTaxSnapshots(workbook: XLSX.WorkBook, orders: Order[]) {
+  const rows = orders.flatMap(order => order.taxSnapshot ? order.taxSnapshot.lines.map(line => [
+    order.id, order.invoiceNumber || "Not issued", order.taxSnapshot!.placeOfSupply.code,
+    line.kind, line.sku, line.description, line.variant, line.hsn, line.quantity, line.unit,
+    line.priceBasis, line.unitPrice / 100, line.discount / 100, line.treatment, line.rate,
+    line.taxable / 100, line.cgst / 100, line.sgst / 100, line.utgst / 100, line.igst / 100,
+    line.total / 100, order.taxSnapshot!.roundOff / 100, order.taxSnapshot!.total / 100,
+  ]) : [[order.id, order.invoiceNumber || "Not issued", "Legacy: tax details unavailable"]]);
+  const sheet = XLSX.utils.aoa_to_sheet([[
+    "Order", "Invoice", "Place of supply", "Line type", "SKU", "Description", "Variant", "HSN", "Quantity", "Unit",
+    "Price basis", "Unit price INR", "Line discount INR", "Treatment", "GST rate %", "Taxable/supply value INR",
+    "CGST INR", "SGST INR", "UTGST INR", "IGST INR", "Line total INR", "Order round-off INR (reference)", "Order total INR (reference)",
+  ], ...rows]);
+  XLSX.utils.book_append_sheet(workbook, sheet, "Tax Snapshots");
 }
 
 export function exportSingleOrderToExcel(order: Order): void {
@@ -103,6 +122,7 @@ export function exportSingleOrderToExcel(order: Order): void {
   worksheet["!cols"] = ORDER_COL_WIDTHS;
 
   XLSX.utils.book_append_sheet(workbook, worksheet, "Order Details");
+  appendTaxSnapshots(workbook, [order]);
   XLSX.writeFile(workbook, `TECHAI-Order-${order.id}.xlsx`);
 }
 
@@ -113,5 +133,6 @@ export function exportAllOrdersToExcel(orders: Order[], sheetName = "All Orders 
   worksheet["!cols"] = ORDER_COL_WIDTHS;
 
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  appendTaxSnapshots(workbook, orders);
   XLSX.writeFile(workbook, filename || `TECHAI-All-Orders-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }

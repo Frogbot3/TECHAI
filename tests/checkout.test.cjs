@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const loader = require('./load-ts.cjs');
+const { settings, productTax } = require('./invoice-fixtures.cjs');
 const { checkoutAddress, confirmedAddress, validateCheckoutAddress, standardShippingFee, clearLegacyCheckoutKeys } = loader()('src/lib/checkout.ts');
 const address = { fullName: 'Test Recipient', phone: '9876543210', email: '', houseNumber: 'Flat 7', street: 'Test Road', city: 'Test City', state: 'Kerala', pincode: '679536', country: 'India' };
 
@@ -30,11 +31,12 @@ test('address defaults never invent a state and confirmed suggestions replace mi
 
 function orderRoutes(price) {
   const writes = [], profileWrites = [];
-  const product = { productId: 'p1', title: 'Test item', price, stock: 10, image: '/test.png' };
+  const product = { productId: 'p1', tax: productTax(), title: 'Test item', price, stock: 10, image: '/test.png' };
   const routes = loader({
     '@/lib/auth': { getSessionFromCookie: async () => ({ role: 'customer', id: 'customer1', phone: '9999999999' }) },
     '@/lib/mongodb': { connectToDatabase: async () => {} },
-    '@/lib/server-coupons': { resolveCouponDiscount: async () => ({ code: 'TEST', discount: 100 }) },
+    './server-business-settings': {getBusinessSettings: async () => settings()},
+    './server-coupons': { resolveCouponDiscount: async () => ({ code: 'TEST', discount: 100 }) },
     '@/models/Product': { findOne: async () => product, findOneAndUpdate: async () => product },
     '@/models/User': { findOneAndUpdate: async (...args) => { profileWrites.push(args); return null; } },
     '@/models/Order': { findOne: async () => null, create: async data => { writes.push(data); return data; } },
