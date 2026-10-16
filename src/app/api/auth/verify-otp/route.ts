@@ -1,154 +1,136 @@
-/**
- * /api/auth/verify-otp
- *
- * Secure server-side email OTP verifier.
- *
- * SECURITY:
- * - Uses constant-time HMAC comparison to prevent timing attacks
- * - Maximum 5 wrong attempts before OTP is invalidated
- * - OTP expiry enforced
- * - Session cookie issued on success (HTTP-only)
- *
- * NOTE: Phone OTP is now handled by Firebase Client SDK.
- * This endpoint only verifies EMAIL OTP.
- */
-
-import { getJwtSecret } from "@/lib/auth";
+﻿import { connectToDatabase } from "@/lib/mongodb";
+import {
+  CUSTOMER_SESSION_COOKIE,
+  setSessionCookie,
+  signSession,
+} from "@/lib/auth";
 import { escapeRegex } from "@/lib/query";
-import { NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/mongodb";
-import { CUSTOMER_SESSION_COOKIE, setSessionCookie, signSession } from "@/lib/auth";
 import { toClientUser } from "@/lib/serializers";
 import User from "@/models/User";
-import { createHmac, timingSafeEqual } from "crypto";
+import EmailOtp from "@/models/EmailOtp";
+import {
+  EMAIL_OTP_MAX_ATTEMPTS,
+  emailOtpDigest,
+  emailOtpRateLimit,
+  emailOtpResponse,
+  logEmailOtpFailure,
+  matchesEmailOtp,
+  normalizeOtpEmail,
+} from "@/lib/email-otp";
 
-const MAX_ATTEMPTS = 5;
-
-function hashOtp(otp: string, email: string): string {
-  return createHmac("sha256", getJwtSecret()).update(`${email}:${otp}`).digest("hex");
-}
-
-function safeCompare(a: string, b: string): boolean {
-  try {
-    const bufA = Buffer.from(a, "hex");
-    const bufB = Buffer.from(b, "hex");
-    if (bufA.length !== bufB.length) return false;
-    return timingSafeEqual(bufA, bufB);
-  } catch {
-    return false;
-  }
-}
+export const runtime = "nodejs";
+const invalid = () =>
+  emailOtpResponse(
+    400,
+    "Invalid, expired or exhausted verification code. Please request a new one.",
+  );
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const rawEmail = body.email ? String(body.email).trim().toLowerCase() : "";
-    const rawOtp = body.otp ? String(body.otp).trim() : "";
-    const nameHint = body.name ? String(body.name).trim() : "";
-
-    if (!rawEmail || !rawOtp) {
-      return NextResponse.json(
-        { success: false, message: "Email address and verification code are required." },
-        { status: 400 }
+    const body = await req.json().catch(() => null);
+    const email = normalizeOtpEmail(body?.email);
+    const otp = typeof body?.otp === "string" ? body.otp.trim() : "";
+    if (!email || !/^\d{6}$/.test(otp))
+      return emailOtpResponse(
+        400,
+        "Enter a valid email address and 6-digit verification code.",
       );
-    }
-
-    if (!/^\d{6}$/.test(rawOtp)) {
-      return NextResponse.json(
-        { success: false, message: "Enter a valid 6-digit verification code." },
-        { status: 400 }
-      );
-    }
-
     await connectToDatabase();
-
-    const dbUser = await User.findOne({
-      email: { $regex: `^${escapeRegex(rawEmail)}$`, $options: "i" },
-    });
-
-    // Generic error: do not reveal whether an account exists or OTP was sent
-    if (!dbUser || !dbUser.emailOtpHash) {
-      return NextResponse.json(
-        { success: false, message: "Invalid or expired verification code. Please request a new one." },
-        { status: 400 }
+    const retryAfter = await emailOtpRateLimit(req, email, "verify");
+    if (retryAfter)
+      return emailOtpResponse(
+        429,
+        "Too many verification requests. Please try again later.",
+        { retryAfter },
       );
-    }
 
-    // Check expiry
-    if (!dbUser.emailOtpExpiresAt || dbUser.emailOtpExpiresAt < new Date()) {
-      // Invalidate the OTP
-      await User.findByIdAndUpdate(dbUser._id, {
-        $set: { emailOtpHash: null, emailOtpExpiresAt: null, emailOtpAttempts: 0 },
-      });
-      return NextResponse.json(
-        { success: false, message: "Verification code has expired. Please request a new one." },
-        { status: 400 }
-      );
-    }
+    // Reserve each attempt atomically: parallel guesses cannot exceed five.
+    // Legacy User.emailOtpHash values are deliberately never accepted.
+    const challenge = await EmailOtp.findOneAndUpdate(
+      {
+        _id: emailOtpDigest(email),
+        status: "sent",
+        expiresAt: { $gt: new Date() },
+        attempts: { $lt: EMAIL_OTP_MAX_ATTEMPTS },
+      },
+      { $inc: { attempts: 1 } },
+      { new: true },
+    );
+    if (!challenge) return invalid();
+    if (
+      !matchesEmailOtp(
+        challenge.hash,
+        emailOtpDigest(email + ":" + challenge.challengeId + ":" + otp),
+      )
+    )
+      return invalid();
 
-    // Check attempt limit
-    if ((dbUser.emailOtpAttempts || 0) >= MAX_ATTEMPTS) {
-      await User.findByIdAndUpdate(dbUser._id, {
-        $set: { emailOtpHash: null, emailOtpExpiresAt: null, emailOtpAttempts: 0 },
-      });
-      return NextResponse.json(
-        { success: false, message: "Too many incorrect attempts. Please request a new verification code." },
-        { status: 429 }
-      );
-    }
+    // Exactly one verifier can consume a code and proceed to create a session.
+    const consumed = await EmailOtp.updateOne(
+      {
+        _id: challenge._id,
+        challengeId: challenge.challengeId,
+        status: "sent",
+        expiresAt: { $gt: new Date() },
+      },
+      { $set: { status: "consumed", hash: null } },
+    );
+    if (consumed.modifiedCount !== 1) return invalid();
 
-    // Constant-time comparison of HMAC hashes
-    const expectedHash = hashOtp(rawOtp, dbUser.email || rawEmail);
-    const valid = safeCompare(dbUser.emailOtpHash, expectedHash);
-
-    if (!valid) {
-      await User.findByIdAndUpdate(dbUser._id, { $inc: { emailOtpAttempts: 1 } });
-      const remaining = MAX_ATTEMPTS - ((dbUser.emailOtpAttempts || 0) + 1);
-      return NextResponse.json(
-        {
-          success: false,
-          message: remaining > 0
-            ? `Incorrect code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`
-            : "Too many incorrect attempts. Please request a new code.",
-        },
-        { status: 400 }
-      );
-    }
-
-    // ── Success: clear OTP fields, update user, issue session ──
-    const updateData: Record<string, any> = {
-      emailOtpHash: null,
-      emailOtpExpiresAt: null,
-      emailOtpAttempts: 0,
-      emailOtpLastSentAt: null,
-      provider: "email",
-      lastLoginAt: new Date(),
+    const query = {
+      email: { $regex: `^${escapeRegex(email)}$`, $options: "i" },
     };
-    if (nameHint && !dbUser.name) updateData.name = nameHint;
-
-    const updatedUser = await User.findByIdAndUpdate(dbUser._id, { $set: updateData }, { new: true });
-
-    const clientUser = toClientUser(updatedUser!);
-    const sessionToken = signSession({
-      id: clientUser.id,
-      phone: clientUser.phone,
-      email: clientUser.email,
-      name: clientUser.name,
+    const matches = await User.find(query).limit(2);
+    if (matches.length > 1)
+      return emailOtpResponse(
+        409,
+        "This account needs support assistance before signing in.",
+      );
+    let dbUser = matches[0];
+    if (!dbUser) {
+      try {
+        // Only verified ownership may create a customer; no unverified name hint.
+        dbUser = await User.create({
+          email,
+          provider: "email",
+          role: "customer",
+          lastLoginAt: new Date(),
+        });
+      } catch (error) {
+        if ((error as { code?: number }).code !== 11000) throw error;
+        // A simultaneous Google/other verified signup may have created it.
+        dbUser = await User.findOne(query);
+        if (!dbUser) throw new Error("account_creation_failed");
+      }
+    } else {
+      // Preserve provider, Firebase/Google IDs, verified phone, name and email.
+      dbUser = await User.findByIdAndUpdate(
+        dbUser._id,
+        { $set: { lastLoginAt: new Date() } },
+        { new: true },
+      );
+    }
+    if (!dbUser) throw new Error("account_missing");
+    const user = toClientUser(dbUser);
+    const token = signSession({
+      id: user.id,
+      phone: user.phone,
+      email: user.email,
+      name: user.name,
       role: "customer",
     });
-
-    const response = NextResponse.json({
-      success: true,
-      message: "Email verified successfully. Welcome to TECH AI!",
-      user: clientUser,
-    });
-    setSessionCookie(response, CUSTOMER_SESSION_COOKIE, sessionToken);
+    const response = emailOtpResponse(
+      200,
+      "Email verified successfully. Welcome to TECH AI!",
+      { user },
+    );
+    setSessionCookie(response, CUSTOMER_SESSION_COOKIE, token);
     return response;
-  } catch (error) {
-    console.error("verify-otp endpoint error:", error);
-    return NextResponse.json(
-      { success: false, message: "Server error. Please try again." },
-      { status: 500 }
+  } catch {
+    logEmailOtpFailure("verify");
+    return emailOtpResponse(
+      503,
+      "We could not complete sign-in. Please request a new code and try again.",
     );
   }
 }

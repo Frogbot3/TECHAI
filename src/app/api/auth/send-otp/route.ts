@@ -1,108 +1,102 @@
-/**
- * /api/auth/send-otp
- *
- * Secure server-side email OTP sender.
- *
- * SECURITY:
- * - OTP is a cryptographically random 6-digit code (using crypto.getRandomValues)
- * - OTP is stored as HMAC-SHA256 hash; plaintext is NEVER logged or returned
- * - Rate-limited: 60-second minimum resend cooldown per email
- * - OTP expires in 10 minutes
- * - No response body leaks whether an account already exists (email enumeration prevention)
- *
- * NOTE: Phone OTP is now handled entirely by Firebase Client SDK (signInWithPhoneNumber).
- * This endpoint only handles EMAIL OTP.
- */
-
-import { getJwtSecret } from "@/lib/auth";
-import { escapeRegex } from "@/lib/query";
-import { NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/mongodb";
-import User from "@/models/User";
+import { randomInt, randomUUID } from "node:crypto";
 import { Resend } from "resend";
-import { createHmac, randomInt } from "crypto";
+import { connectToDatabase } from "@/lib/mongodb";
+import EmailOtp from "@/models/EmailOtp";
+import {
+  EMAIL_OTP_COOLDOWN_MS,
+  EMAIL_OTP_EXPIRY_MS,
+  emailOtpDeliveryConfig,
+  emailOtpDigest,
+  emailOtpRateLimit,
+  emailOtpResponse,
+  logEmailOtpFailure,
+  normalizeOtpEmail,
+} from "@/lib/email-otp";
 
-const resend =
-  process.env.RESEND_API_KEY && !process.env.RESEND_API_KEY.includes("your_resend")
-    ? new Resend(process.env.RESEND_API_KEY)
-    : null;
-
-const senderEmail = process.env.OTP_SENDER_EMAIL || "TECH AI <no-reply@techai.store>";
-const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
-const OTP_RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds
-
-function hashOtp(otp: string, email: string): string {
-  return createHmac("sha256", getJwtSecret()).update(`${email}:${otp}`).digest("hex");
-}
-
-function generateSecureOtp(): string {
-  // Cryptographically random 6-digit code (100000–999999)
-  return (100000 + (randomInt(900000))).toString();
-}
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  let challenge: { _id: string; challengeId: string } | undefined;
   try {
-    const body = await req.json();
-    const rawEmail = body.email ? String(body.email).trim().toLowerCase() : "";
-
-    if (!rawEmail || !rawEmail.includes("@") || !rawEmail.includes(".")) {
-      return NextResponse.json(
-        { success: false, message: "Enter a valid email address to receive the verification code." },
-        { status: 400 }
+    const body = await req.json().catch(() => null);
+    const email = normalizeOtpEmail(body?.email);
+    if (!email)
+      return emailOtpResponse(
+        400,
+        "Enter a valid email address to receive the verification code.",
+      );
+    let config;
+    try {
+      config = emailOtpDeliveryConfig();
+    } catch {
+      logEmailOtpFailure("configuration");
+      return emailOtpResponse(
+        503,
+        "Email sign-in is not configured. Please contact the store.",
       );
     }
-
-    await connectToDatabase();
-
-    // ── Rate limiting check ──
-    const existingUser = await User.findOne({
-      email: { $regex: `^${escapeRegex(rawEmail)}$`, $options: "i" },
-    });
-
-    if (existingUser?.emailOtpLastSentAt) {
-      const elapsed = Date.now() - existingUser.emailOtpLastSentAt.getTime();
-      if (elapsed < OTP_RESEND_COOLDOWN_MS) {
-        const remaining = Math.ceil((OTP_RESEND_COOLDOWN_MS - elapsed) / 1000);
-        return NextResponse.json(
-          {
-            success: false,
-            message: `Please wait ${remaining} seconds before requesting a new code.`,
-            retryAfter: remaining,
-          },
-          { status: 429 }
-        );
-      }
+    if (config.testEmail && email !== config.testEmail) {
+      return emailOtpResponse(
+        403,
+        "Demo email sign-in is limited to the configured Resend test recipient.",
+      );
     }
+    await connectToDatabase();
+    const retryAfter = await emailOtpRateLimit(req, email, "send");
+    if (retryAfter)
+      return emailOtpResponse(
+        429,
+        "Too many code requests. Please try again later.",
+        { retryAfter },
+      );
 
-    // ── Generate and hash OTP ──
-    const otp = generateSecureOtp();
-    const hashedOtp = hashOtp(otp, rawEmail);
-    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
-
-    // ── Upsert user with hashed OTP (never store plaintext) ──
-    await User.findOneAndUpdate(
-      { email: { $regex: `^${escapeRegex(rawEmail)}$`, $options: "i" } },
-      {
-        $set: {
-          email: rawEmail,
-          emailOtpHash: hashedOtp,
-          emailOtpExpiresAt: expiresAt,
-          emailOtpAttempts: 0,
-          emailOtpLastSentAt: new Date(),
-          provider: "email",
+    const now = new Date();
+    const _id = emailOtpDigest(email),
+      challengeId = randomUUID();
+    const otp = randomInt(100000, 1000000).toString();
+    // The _id unique index makes the cooldown atomic, including the first send.
+    try {
+      await EmailOtp.findOneAndUpdate(
+        {
+          _id,
+          lastRequestedAt: {
+            $lte: new Date(now.getTime() - EMAIL_OTP_COOLDOWN_MS),
+          },
         },
-      },
-      { upsert: true, new: true }
-    );
-
-    // ── Send email via Resend ──
-    let emailSent = false;
-    if (resend) {
-      try {
-        await resend.emails.send({
-          from: senderEmail,
-          to: rawEmail,
+        {
+          $set: {
+            challengeId,
+            hash: emailOtpDigest(email + ":" + challengeId + ":" + otp),
+            status: "pending",
+            attempts: 0,
+            lastRequestedAt: now,
+            expiresAt: new Date(now.getTime() + EMAIL_OTP_EXPIRY_MS),
+          },
+        },
+        { upsert: true, new: true },
+      );
+    } catch (error) {
+      if ((error as { code?: number }).code !== 11000) throw error;
+      return emailOtpResponse(
+        429,
+        "Please wait before requesting another code.",
+        { retryAfter: 60 },
+      );
+    }
+    challenge = { _id, challengeId };
+    const resend = new Resend(config.apiKey);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let result;
+    try {
+      result = await Promise.race([
+        resend.emails.send({
+          from: config.from,
+          to: email,
           subject: "Your TECH AI Verification Code",
+          text:
+            "Your TECH AI verification code is " +
+            otp +
+            ". It expires in 10 minutes. Never share this code.",
           html: `
             <div style="font-family:'Segoe UI',Arial,sans-serif;padding:32px 24px;background:#f8fafc;max-width:480px;margin:0 auto;border-radius:12px;border:1px solid #e2e8f0;">
               <div style="text-align:center;margin-bottom:24px;">
@@ -121,27 +115,63 @@ export async function POST(req: Request) {
               </div>
             </div>
           `,
-        });
-        emailSent = true;
-      } catch (err) {
-        console.error("Resend email delivery error:", err);
+        }),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error("delivery_timeout")),
+            15000,
+          );
+        }),
+      ]);
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
+    const { data, error } = result;
+    if (error || !data?.id) {
+      logEmailOtpFailure("delivery", error);
+      await EmailOtp.updateOne(
+        { ...challenge, status: "pending" },
+        { $set: { status: "failed", hash: null } },
+      );
+      return emailOtpResponse(
+        502,
+        "We could not send your verification email. Please try again later.",
+      );
+    }
+    // API acceptance is not proof of inbox delivery. Only accepted sends become
+    // verifiable; late responses cannot reactivate a replaced/expired challenge.
+    const activated = await EmailOtp.updateOne(
+      { ...challenge, status: "pending", expiresAt: { $gt: new Date() } },
+      { $set: { status: "sent" } },
+    );
+    if (activated.modifiedCount !== 1) {
+      logEmailOtpFailure("activation");
+      return emailOtpResponse(
+        503,
+        "The code request expired or was replaced. Please request a new code.",
+      );
+    }
+    return emailOtpResponse(
+      200,
+      "Verification email accepted for sending. Check your inbox and spam folder.",
+      { delivery: "accepted" },
+    );
+  } catch {
+    // Pending challenges are unverifiable even if this cleanup also fails.
+    if (challenge) {
+      try {
+        await EmailOtp.updateOne(
+          { ...challenge, status: "pending" },
+          { $set: { status: "failed", hash: null } },
+        );
+      } catch {
+        /* Fail closed; never activate a failed send. */
       }
     }
-
-    // NEVER return the OTP in the response, even for dev
-    return NextResponse.json({
-      success: true,
-      message: emailSent
-        ? `Verification code sent to ${rawEmail}. Check your inbox and spam folder.`
-        : "Verification code generated. (Email delivery unavailable — configure RESEND_API_KEY.)",
-      delivery: emailSent ? "email" : "unavailable",
-      // DO NOT include otpHint — no plaintext OTP ever in response
-    });
-  } catch (error) {
-    console.error("send-otp endpoint error:", error);
-    return NextResponse.json(
-      { success: false, message: "Server error. Please try again." },
-      { status: 500 }
+    logEmailOtpFailure("send");
+    return emailOtpResponse(
+      503,
+      "We could not send your verification email. Please try again later.",
     );
   }
 }

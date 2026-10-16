@@ -364,12 +364,12 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: trimmed }),
       });
-      const data = await resp.json();
-      if (!data.success) {
-        const retryMsg = data.retryAfter
-          ? ` Please wait ${data.retryAfter}s.`
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok || !data?.success || data.delivery !== "accepted") {
+        const retryMsg = data?.retryAfter
+          ? ` Please wait ${data?.retryAfter}s.`
           : "";
-        setNotice({ type: "error", msg: (data.message || "Could not send code.") + retryMsg });
+        setNotice({ type: "error", msg: (data?.message || "Could not send code.") + retryMsg });
         return;
       }
       setOtp("");
@@ -401,9 +401,9 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim().toLowerCase(), otp }),
       });
-      const data = await resp.json();
-      if (!data.success) {
-        setNotice({ type: "error", msg: data.message || "Incorrect code." });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok || !data?.success || !data.user) {
+        setNotice({ type: "error", msg: data?.message || "Incorrect code." });
         return;
       }
       onLoginSuccess(data.user as UserType);
